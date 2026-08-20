@@ -17,16 +17,39 @@ export function Home() {
   const [generating, setGenerating] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const handleGenerate = () => {
+  const handleGenerate = async () => {
     if (!prompt.trim()) return;
     setGenerating(true);
-    const id = createProject(prompt.trim());
-    addToast({ type: 'loading', title: 'AI is building your project', message: 'Setting up files and components...' });
-    setTimeout(() => {
+    
+    addToast({ type: 'loading', title: 'AI is building your project', message: 'Connecting to server and generating code...' });
+
+    try {
+      // Fazendo a chamada real para o nosso servidor Node.js
+      const response = await fetch('http://localhost:3000/api/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ prompt: prompt.trim() }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Erro ao gerar projeto');
+      }
+
+      // Cria o projeto localmente usando o retorno do servidor (ou o prompt)
+      const id = createProject(prompt.trim());
+      
       setGenerating(false);
       setPrompt('');
       navigate(`/project/${id}`);
-    }, 1800);
+    } catch (error) {
+      console.error(error);
+      setGenerating(false);
+      addToast({ type: 'error', title: 'Generation failed', message: 'Could not connect to the Nexa AI server.' });
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
