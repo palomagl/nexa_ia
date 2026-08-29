@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import {
-  Send, Paperclip, Sparkles, Bot, User as UserIcon, FileCode, Trash, MoreHorizontal, ChevronRight, Mic, X, Image as ImageIcon,
+  Send, Paperclip, Sparkles, Bot, User as UserIcon, FileCode, Trash, ChevronRight, Mic, X, Image as ImageIcon,
 } from 'lucide-react';
 import type { ChatMessage } from '../../types';
 import { useStore } from '../../store/useStore';
@@ -123,9 +123,7 @@ export function AIChat({ projectId, messages, onCollapse }: Props) {
       actions?: Array<{
         type?: string;
         file?: string;
-        name?: string;
         content?: string;
-        parentId?: string | null;
       }>;
       brokenFiles?: { name: string; error: string }[];
     } | null = null;
@@ -162,9 +160,7 @@ export function AIChat({ projectId, messages, onCollapse }: Props) {
       actions?: Array<{
         type?: string;
         file?: string;
-        name?: string;
         content?: string;
-        parentId?: string | null;
       }>;
       brokenFiles?: { name: string; error: string }[];
     };
@@ -177,7 +173,7 @@ export function AIChat({ projectId, messages, onCollapse }: Props) {
     if (Array.isArray(result.actions)) {
       for (const action of result.actions) {
         if (action.type === 'update_file') {
-          const path = action.file || action.name || 'App.tsx';
+          const path = action.file || 'App.tsx';
 
           if (typeof action.content === 'string') {
             const existed = !!findNodeByPath(getProject(projectId)?.files || [], path);
@@ -190,7 +186,7 @@ export function AIChat({ projectId, messages, onCollapse }: Props) {
             });
           }
         } else if (action.type === 'delete_file') {
-          const path = action.file || action.name;
+          const path = action.file;
 
           if (path && findNodeByPath(getProject(projectId)?.files || [], path)) {
             removeGeneratedFile(projectId, path);
@@ -289,9 +285,6 @@ export function AIChat({ projectId, messages, onCollapse }: Props) {
           </div>
         </div>
         <div className="flex items-center gap-1">
-          <button className="p-1.5 rounded-lg text-white/40 hover:text-white hover:bg-white/5">
-            <MoreHorizontal className="w-4 h-4" />
-          </button>
           {onCollapse && (
             <button
               onClick={onCollapse}

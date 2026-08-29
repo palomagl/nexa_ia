@@ -19,10 +19,6 @@ export function formatDate(input: string | number | Date): string {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-export function timeAgo(date: string): string {
-  return formatDate(date);
-}
-
 type ApiErrorBody = {
   error?: string;
   details?: string;

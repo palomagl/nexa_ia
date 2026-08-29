@@ -1417,8 +1417,6 @@ app.post('/api/generate', async (req, res) => {
 
     writeStreamEvent(res, {
       type: 'done',
-      success: true,
-      code: appFile.content,
       files,
       brokenFiles,
       explanation:
@@ -1481,7 +1479,6 @@ app.post('/api/chat', async (req, res) => {
 
     const projectFiles = files
       .map((file) => `
-FILE_ID: ${file.id || ''}
 NAME: ${file.name || ''}
 TYPE: ${file.type || ''}
 LANGUAGE: ${file.language || 'unknown'}
@@ -1675,7 +1672,6 @@ Explicação curta.
 
     writeStreamEvent(res, {
       type: 'done',
-      success: true,
       message: (messageSection && messageSection.content.trim()) || 'Alteração concluída.',
       actions,
       brokenFiles

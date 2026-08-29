@@ -3,7 +3,7 @@ import { useStore } from '../../store/useStore';
 import { useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 
-export function Topbar({ onNewProject }: { onNewProject?: () => void }) {
+export function Topbar() {
   const { theme, toggleTheme, setCommandOpen, workspace } = useStore();
   const navigate = useNavigate();
   const [notifOpen, setNotifOpen] = useState(false);
@@ -15,9 +15,6 @@ export function Topbar({ onNewProject }: { onNewProject?: () => void }) {
           <span className="text-white/40">Workspace</span>
           <span className="text-white/20">/</span>
           <span className="font-medium text-white">{workspace.name}</span>
-        </div>
-        <div className="hidden md:flex items-center gap-1 ml-4">
-          <button onClick={() => navigate('/projects')} className="btn-ghost text-sm">Deploy</button>
         </div>
       </div>
 
@@ -68,7 +65,7 @@ export function Topbar({ onNewProject }: { onNewProject?: () => void }) {
         </button>
 
         <button
-          onClick={onNewProject || (() => navigate('/'))}
+          onClick={() => navigate('/')}
           className="btn-primary flex items-center gap-2 text-sm"
         >
           <Plus className="w-4 h-4" />

@@ -20,7 +20,6 @@ function getStoredAccentColor(): AccentColor {
 interface AppState {
   sidebarCollapsed: boolean;
   toggleSidebar: () => void;
-  setSidebarCollapsed: (v: boolean) => void;
 
   theme: 'dark' | 'light';
   toggleTheme: () => void;
@@ -44,13 +43,10 @@ interface AppState {
   getProject: (id: string) => Project | undefined;
 
   addChatMessage: (projectId: string, msg: Omit<ChatMessage, 'id' | 'timestamp'>) => void;
-  updateChatMessage: (projectId: string, msgId: string, patch: Partial<ChatMessage>) => void;
 
-  files: Record<string, FileNode[]>;
   updateFileContent: (projectId: string, fileId: string, content: string) => void;
   addFile: (projectId: string, name: string, parentId: string | null, type: 'file' | 'folder') => void;
   deleteFile: (projectId: string, fileId: string) => void;
-  renameFile: (projectId: string, fileId: string, name: string) => void;
 
   // Edição incremental orientada por caminho (usada pela IA no chat): cria
   // ou atualiza um único arquivo pelo seu caminho ("components/Header.tsx"),
@@ -58,7 +54,6 @@ interface AppState {
   applyGeneratedFile: (projectId: string, path: string, content: string) => void;
   removeGeneratedFile: (projectId: string, path: string) => void;
 
-  versions: Record<string, Version[]>;
   createCheckpoint: (projectId: string, description: string) => void;
   restoreVersion: (projectId: string, versionId: string) => void;
 
@@ -73,7 +68,6 @@ interface AppState {
 export const useStore = create<AppState>((set, get) => ({
   sidebarCollapsed: false,
   toggleSidebar: () => set(s => ({ sidebarCollapsed: !s.sidebarCollapsed })),
-  setSidebarCollapsed: v => set({ sidebarCollapsed: v }),
 
   theme: 'dark',
   toggleTheme: () => set(s => ({ theme: s.theme === 'dark' ? 'light' : 'dark' })),
@@ -152,16 +146,7 @@ export const useStore = create<AppState>((set, get) => ({
           : p
       ),
     })),
-  updateChatMessage: (projectId, msgId, patch) =>
-    set(s => ({
-      projects: s.projects.map(p =>
-        p.id === projectId
-          ? { ...p, chat: p.chat.map(m => (m.id === msgId ? { ...m, ...patch } : m)) }
-          : p
-      ),
-    })),
 
-  files: {},
   updateFileContent: (projectId, fileId, content) =>
     set(s => ({
       projects: s.projects.map(p =>
@@ -200,13 +185,6 @@ export const useStore = create<AppState>((set, get) => ({
         return { ...p, files: p.files.filter(f => !toDelete.has(f.id)) };
       }),
     })),
-  renameFile: (projectId, fileId, name) =>
-    set(s => ({
-      projects: s.projects.map(p =>
-        p.id === projectId ? { ...p, files: p.files.map(f => (f.id === fileId ? { ...f, name } : f)) } : p
-      ),
-    })),
-
   applyGeneratedFile: (projectId, path, content) =>
     set(s => ({
       projects: s.projects.map(p =>
@@ -224,7 +202,6 @@ export const useStore = create<AppState>((set, get) => ({
       ),
     })),
 
-  versions: {},
   createCheckpoint: (projectId, description) =>
     set(s => {
       const project = s.projects.find(p => p.id === projectId);
