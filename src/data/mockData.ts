@@ -98,5 +98,4 @@ export const mockProjects: Project[] = projectDefs.map((p, i) => ({
   files: makeFiles(p.name),
   chat: makeChat(p.prompt),
   versions: makeVersions(makeFiles(p.name)),
-  deployUrl: i === 3 ? 'https://doeplus-rs.nexa.ai' : undefined,
 }));

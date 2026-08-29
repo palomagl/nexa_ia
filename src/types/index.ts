@@ -70,7 +70,6 @@ export interface Project {
   files: FileNode[];
   chat: ChatMessage[];
   versions: Version[];
-  deployUrl?: string;
 }
 
 export interface Toast {

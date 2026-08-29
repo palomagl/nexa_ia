@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-  Code2, Eye, MessageSquare, History, Github, Rocket,
-  PanelLeft, Sparkles, Download, ChevronLeft, ChevronRight,
+  Code2, Eye, MessageSquare, History,
+  PanelLeft, Sparkles, ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { cn } from '../lib/utils';
@@ -11,8 +11,6 @@ import { Preview } from '../components/workspace/Preview';
 import { AIChat } from '../components/workspace/AIChat';
 import { CodeEditor } from '../components/workspace/CodeEditor';
 import { VersionsPanel } from '../components/workspace/VersionsPanel';
-import { Modal } from '../components/ui/Modal';
-import { Dropdown } from '../components/ui/Dropdown';
 
 type ViewMode = 'preview' | 'code';
 type RightView = 'chat' | 'history';
@@ -20,9 +18,7 @@ type RightView = 'chat' | 'history';
 export function ProjectWorkspace() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const {
-    getProject, addToast, updateProject,
-  } = useStore();
+  const { getProject } = useStore();
 
   const project = id ? getProject(id) : undefined;
 
@@ -38,9 +34,6 @@ export function ProjectWorkspace() {
     () => typeof window !== 'undefined' && window.innerWidth < 1024
   );
   const [activeFileId, setActiveFileId] = useState<string | null>('f2');
-  const [showDeployModal, setShowDeployModal] = useState(false);
-  const [showGithubModal, setShowGithubModal] = useState(false);
-  const [deployStep, setDeployStep] = useState<'idle' | 'building' | 'deploying' | 'done'>('idle');
 
   useEffect(() => {
     const mq = window.matchMedia('(max-width: 1023px)');
@@ -68,17 +61,6 @@ export function ProjectWorkspace() {
   }
 
   const activeFile = project.files.find(f => f.id === activeFileId);
-
-  const handleDeploy = () => {
-    setShowDeployModal(true);
-    setDeployStep('building');
-    setTimeout(() => setDeployStep('deploying'), 1500);
-    setTimeout(() => {
-      setDeployStep('done');
-      updateProject(project.id, { status: 'live', deployUrl: `https://${project.name.toLowerCase().replace(/\s+/g, '-')}.nexa.ai` });
-      addToast({ type: 'success', title: 'Deployed successfully', message: 'Your project is live!' });
-    }, 3500);
-  };
 
   const openChat = () => {
     if (showRight && rightView === 'chat') {
@@ -205,29 +187,18 @@ export function ProjectWorkspace() {
             <MessageSquare className="w-4 h-4" />
           </button>
 
-          <Dropdown
-            items={[
-              {
-                label: rightView === 'history' && showRight ? 'Fechar histórico' : 'Histórico',
-                icon: <History className="w-3.5 h-3.5" />,
-                onClick: () => {
-                  if (rightView === 'history' && showRight) setShowRight(false);
-                  else openHistory();
-                },
-              },
-              {
-                label: 'Push to GitHub',
-                icon: <Github className="w-3.5 h-3.5" />,
-                onClick: () => setShowGithubModal(true),
-              },
-            ]}
-          />
-
           <button
-            onClick={handleDeploy}
-            className="ml-1 h-8 px-3 rounded-lg gradient-nexa text-xs font-semibold text-white flex items-center gap-1.5 hover:opacity-90 transition-opacity"
+            onClick={() => {
+              if (rightView === 'history' && showRight) setShowRight(false);
+              else openHistory();
+            }}
+            className={cn(
+              'p-2 rounded-md transition-colors',
+              showRight && rightView === 'history' ? 'text-white bg-white/10' : 'text-white/40 hover:text-white hover:bg-white/5'
+            )}
+            title={showRight && rightView === 'history' ? 'Fechar histórico' : 'Histórico'}
           >
-            <Rocket className="w-3.5 h-3.5" /> Deploy
+            <History className="w-4 h-4" />
           </button>
         </div>
       </header>
@@ -312,94 +283,6 @@ export function ProjectWorkspace() {
           </aside>
         )}
       </div>
-
-      <Modal open={showDeployModal} onClose={() => deployStep === 'done' && setShowDeployModal(false)}>
-        <div className="p-6">
-          <div className="flex items-center gap-3 mb-5">
-            <div className="w-10 h-10 rounded-xl gradient-nexa flex items-center justify-center">
-              <Rocket className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <h2 className="text-lg font-bold text-white">Deploy Project</h2>
-              <p className="text-sm text-white/40">Publishing {project.name}</p>
-            </div>
-          </div>
-
-          {deployStep !== 'done' && (
-            <div className="space-y-3 py-4">
-              {['building', 'deploying'].filter(s => deployStep === s || (deployStep === 'deploying' && s === 'building')).map(step => (
-                <div key={step} className="flex items-center gap-3">
-                  <div className="w-5 h-5 border-2 border-nexa-500/30 border-t-nexa-500 rounded-full animate-spin" />
-                  <span className="text-sm text-white/60 capitalize">{step === 'building' ? 'Building project...' : 'Deploying to edge network...'}</span>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {deployStep === 'done' && (
-            <div className="py-4">
-              <div className="flex items-center gap-2 mb-4 text-green-400">
-                <Sparkles className="w-5 h-5" />
-                <span className="font-semibold">Your project is live!</span>
-              </div>
-              <div className="glass rounded-xl p-3 flex items-center justify-between">
-                <span className="text-sm text-nexa-300 truncate">{project.deployUrl || `https://${project.name.toLowerCase().replace(/\s+/g, '-')}.nexa.ai`}</span>
-                <a href="#" target="_blank" rel="noopener" className="p-1.5 rounded-lg bg-nexa-500/15 text-nexa-300 hover:bg-nexa-500/25 transition-all">
-                  <Download className="w-4 h-4" />
-                </a>
-              </div>
-              <button onClick={() => setShowDeployModal(false)} className="btn-primary w-full mt-4">Done</button>
-            </div>
-          )}
-        </div>
-      </Modal>
-
-      <Modal open={showGithubModal} onClose={() => setShowGithubModal(false)}>
-        <div className="p-6">
-          <div className="flex items-center gap-3 mb-5">
-            <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center">
-              <Github className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <h2 className="text-lg font-bold text-white">Push to GitHub</h2>
-              <p className="text-sm text-white/40">Connect and push your project</p>
-            </div>
-          </div>
-
-          <div className="space-y-4 py-2">
-            <div className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.02] border border-white/5">
-              <div className="w-8 h-8 rounded-lg bg-green-500/20 flex items-center justify-center">
-                <span className="text-green-400 text-xs">✓</span>
-              </div>
-              <div className="flex-1">
-                <p className="text-sm text-white">Connected as @paloma-garcia</p>
-                <p className="text-xs text-white/40">GitHub account linked</p>
-              </div>
-            </div>
-
-            <div>
-              <label className="text-xs text-white/40 mb-1.5 block">Repository name</label>
-              <input
-                defaultValue={project.name.toLowerCase().replace(/\s+/g, '-')}
-                className="input-base w-full text-sm"
-              />
-            </div>
-
-            <div className="flex items-center gap-3">
-              <label className="flex items-center gap-2 text-sm text-white/60 cursor-pointer">
-                <input type="checkbox" defaultChecked className="rounded border-white/20 bg-white/5 text-nexa-500" /> Private repo
-              </label>
-            </div>
-
-            <button
-              onClick={() => { addToast({ type: 'success', title: 'Pushed to GitHub', message: 'Repository created and code pushed' }); setShowGithubModal(false); }}
-              className="btn-primary w-full flex items-center justify-center gap-2"
-            >
-              <Github className="w-4 h-4" /> Push to GitHub
-            </button>
-          </div>
-        </div>
-      </Modal>
     </div>
   );
 }
