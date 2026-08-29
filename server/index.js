@@ -1232,7 +1232,7 @@ function extractPlannedPaths(plan) {
 */
 
 app.post('/api/generate', async (req, res) => {
-  const { prompt, attachment } = req.body;
+  const { prompt, attachment, plan: providedPlan } = req.body;
 
   if (!prompt || !prompt.trim()) {
     return res.status(400).json({
@@ -1252,14 +1252,20 @@ app.post('/api/generate', async (req, res) => {
     console.log('🚀 Gerando projeto:', prompt);
 
     // -------- PASSO 1: planejar --------
-    writeStreamEvent(res, { type: 'phase', phase: 'planning', label: 'Planejando arquitetura e design...' });
-    let plan = '';
-    try {
-      plan = await planProject(prompt, attachment);
-      console.log('🧭 Plano gerado (%d chars). Arquivos previstos:', plan.length, extractPlannedPaths(plan));
-    } catch (planError) {
-      // Plano é um acelerador, não um pré-requisito — se falhar, segue sem ele.
-      console.warn('⚠️ Falha ao planejar, seguindo sem plano:', planError.message);
+    // Se o cliente já revisou um plano no botão "Plan" da tela inicial, ele
+    // vem no corpo da requisição e pulamos a chamada de planejamento aqui.
+    let plan = typeof providedPlan === 'string' ? providedPlan.trim() : '';
+    if (plan) {
+      console.log('🧭 Usando plano enviado pelo cliente (%d chars).', plan.length);
+    } else {
+      writeStreamEvent(res, { type: 'phase', phase: 'planning', label: 'Planejando arquitetura e design...' });
+      try {
+        plan = await planProject(prompt, attachment);
+        console.log('🧭 Plano gerado (%d chars). Arquivos previstos:', plan.length, extractPlannedPaths(plan));
+      } catch (planError) {
+        // Plano é um acelerador, não um pré-requisito — se falhar, segue sem ele.
+        console.warn('⚠️ Falha ao planejar, seguindo sem plano:', planError.message);
+      }
     }
 
     // -------- PASSO 2: construir --------
@@ -1696,6 +1702,45 @@ Explicação curta.
     });
 
     return res.end();
+  }
+});
+
+/*
+|--------------------------------------------------------------------------
+| PLANEJAR (preview) — só o passo 1, pro botão "Plan" da tela inicial
+|--------------------------------------------------------------------------
+|
+| Roda apenas planProject() e devolve o texto do plano. O usuário revê,
+| e ao mandar gerar o front reenvia esse mesmo plano no corpo de
+| /api/generate, que então pula o passo de planejamento.
+|
+*/
+
+app.post('/api/plan', async (req, res) => {
+  const { prompt, attachment } = req.body;
+
+  if (!prompt || !prompt.trim()) {
+    return res.status(400).json({ error: 'O prompt não pode estar vazio!' });
+  }
+
+  try {
+    console.log('🧭 Planejando (preview):', prompt);
+    const plan = await planProject(prompt.trim(), attachment);
+
+    if (!plan || !plan.trim()) {
+      return res.status(502).json({ error: 'A IA não retornou um plano. Tente novamente.' });
+    }
+
+    return res.json({ plan: plan.trim() });
+  } catch (error) {
+    console.error('❌ ERRO AO PLANEJAR:', error);
+    const isOverloaded = [503, 529].includes(error?.status) || [503, 529].includes(error?.code);
+    return res.status(isOverloaded ? 503 : 500).json({
+      error: isOverloaded
+        ? 'A IA está temporariamente sobrecarregada. Tente novamente em alguns segundos.'
+        : 'Erro ao planejar o projeto.',
+      details: error?.message || String(error),
+    });
   }
 });
 

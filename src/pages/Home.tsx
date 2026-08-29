@@ -8,6 +8,7 @@ import { useStore } from '../store/useStore';
 import { cn, formatDate, formatServerError, isNetworkError, consumeNDJSONStream, readImageFile, type AttachedImage } from '../lib/utils';
 import { useVoiceInput } from '../lib/useVoiceInput';
 import { Dropdown } from '../components/ui/Dropdown';
+import { Modal } from '../components/ui/Modal';
 import type { ProjectType } from '../types';
 
 export function Home() {
@@ -18,6 +19,8 @@ export function Home() {
   const [phaseLabel, setPhaseLabel] = useState('');
   const [streamedChars, setStreamedChars] = useState(0);
   const [attachedImage, setAttachedImage] = useState<AttachedImage | null>(null);
+  const [planning, setPlanning] = useState(false);
+  const [planText, setPlanText] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -43,9 +46,44 @@ export function Home() {
     }
   };
 
-  const handleGenerate = async () => {
+  const handlePlan = async () => {
+    if (!prompt.trim() || planning || generating) return;
+    setPlanning(true);
+
+    try {
+      const response = await fetch('http://localhost:3000/api/plan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: prompt.trim(), attachment: attachedImage || undefined }),
+      });
+
+      const data = await response.json().catch(() => ({} as { plan?: string; error?: string; details?: string }));
+
+      if (!response.ok) {
+        throw new Error(formatServerError(response.status, data, 'Não foi possível gerar o plano.'));
+      }
+
+      setPlanText(data.plan || '');
+    } catch (error) {
+      console.error(error);
+      addToast({
+        type: 'error',
+        title: 'Falha ao planejar',
+        message: isNetworkError(error)
+          ? 'Não foi possível conectar. Verifique se o servidor Express está rodando em http://localhost:3000.'
+          : error instanceof Error
+            ? error.message
+            : 'Erro ao gerar o plano.',
+      });
+    } finally {
+      setPlanning(false);
+    }
+  };
+
+  const handleGenerate = async (planOverride?: string) => {
 
     if (!prompt.trim()) return;
+    setPlanText(null);
     setGenerating(true);
     setPhaseLabel('Conectando ao servidor...');
     setStreamedChars(0);
@@ -62,7 +100,11 @@ export function Home() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ prompt: prompt.trim(), attachment: attachedImage || undefined }),
+        body: JSON.stringify({
+          prompt: prompt.trim(),
+          attachment: attachedImage || undefined,
+          plan: planOverride || undefined,
+        }),
       });
 
       // Erro antes do stream começar (ex.: prompt vazio) ainda vem como JSON normal.
@@ -241,12 +283,21 @@ export function Home() {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <button className="btn-outline text-sm py-2 px-3 hidden sm:flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5" />
+              <button
+                onClick={handlePlan}
+                disabled={!prompt.trim() || planning || generating}
+                title="Ver o plano (arquitetura + design) antes de gerar"
+                className="btn-outline text-sm py-2 px-3 hidden sm:flex items-center gap-1.5 disabled:opacity-40"
+              >
+                {planning ? (
+                  <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <Sparkles className="w-3.5 h-3.5" />
+                )}
                 Plan
               </button>
               <button
-                onClick={handleGenerate}
+                onClick={() => handleGenerate()}
                 disabled={!prompt.trim() || generating}
                 className="btn-primary text-sm py-2 px-4 flex items-center gap-2"
               >
@@ -375,6 +426,35 @@ export function Home() {
           ))}
         </div>
       </div>
+
+      <Modal open={planText !== null} onClose={() => setPlanText(null)} className="max-w-2xl">
+        <div className="p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 rounded-xl gradient-nexa flex items-center justify-center flex-shrink-0">
+              <Sparkles className="w-5 h-5 text-white" />
+            </div>
+            <div className="min-w-0">
+              <h2 className="text-lg font-bold text-white">Plano do projeto</h2>
+              <p className="text-sm text-white/40">Arquitetura e design system que a IA vai seguir na geração</p>
+            </div>
+          </div>
+          <pre className="max-h-[52vh] overflow-y-auto whitespace-pre-wrap break-words text-xs text-white/70 bg-white/[0.02] border border-white/5 rounded-xl p-4 leading-relaxed font-mono">
+            {planText || '—'}
+          </pre>
+          <div className="flex items-center justify-end gap-2 mt-4">
+            <button onClick={() => setPlanText(null)} className="btn-outline text-sm py-2 px-4">
+              Fechar
+            </button>
+            <button
+              onClick={() => handleGenerate(planText || undefined)}
+              className="btn-primary text-sm py-2 px-4 flex items-center gap-2"
+            >
+              Gerar com este plano
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }
