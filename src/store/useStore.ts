@@ -21,9 +21,6 @@ interface AppState {
   sidebarCollapsed: boolean;
   toggleSidebar: () => void;
 
-  theme: 'dark' | 'light';
-  toggleTheme: () => void;
-
   accentColor: AccentColor;
   setAccentColor: (color: AccentColor) => void;
 
@@ -68,9 +65,6 @@ interface AppState {
 export const useStore = create<AppState>((set, get) => ({
   sidebarCollapsed: false,
   toggleSidebar: () => set(s => ({ sidebarCollapsed: !s.sidebarCollapsed })),
-
-  theme: 'dark',
-  toggleTheme: () => set(s => ({ theme: s.theme === 'dark' ? 'light' : 'dark' })),
 
   accentColor: getStoredAccentColor(),
   setAccentColor: color => {

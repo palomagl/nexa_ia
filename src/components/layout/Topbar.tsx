@@ -1,9 +1,9 @@
-import { HelpCircle, Moon, Sun, Plus, Search } from 'lucide-react';
+import { HelpCircle, Plus, Search } from 'lucide-react';
 import { useStore } from '../../store/useStore';
 import { useNavigate } from 'react-router-dom';
 
 export function Topbar() {
-  const { theme, toggleTheme, setCommandOpen, workspace } = useStore();
+  const { setCommandOpen, workspace } = useStore();
   const navigate = useNavigate();
 
   return (
@@ -24,10 +24,6 @@ export function Topbar() {
           <Search className="w-4 h-4" />
           <span>Search...</span>
           <kbd className="ml-auto text-[10px] px-1.5 py-0.5 rounded bg-white/5 text-white/30">⌘K</kbd>
-        </button>
-
-        <button onClick={toggleTheme} className="btn-ghost p-2.5">
-          {theme === 'dark' ? <Sun className="w-[18px] h-[18px]" /> : <Moon className="w-[18px] h-[18px]" />}
         </button>
 
         <button onClick={() => navigate('/help')} className="btn-ghost p-2.5" title="Ajuda">

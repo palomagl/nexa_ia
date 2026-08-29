@@ -1,15 +1,12 @@
 import { useState } from 'react';
-import {
-  User, Building2, Sparkles, Github, Palette,
-  Moon, Sun, Monitor,
-} from 'lucide-react';
+import { User, Building2, Sparkles, Github, Palette } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useStore } from '../store/useStore';
 
 type SettingsTab = 'account' | 'workspace' | 'ai' | 'github' | 'appearance';
 
 export function Settings() {
-  const { theme, toggleTheme, accentColor, setAccentColor, user, updateUser, workspace, updateWorkspace, addToast } = useStore();
+  const { accentColor, setAccentColor, user, updateUser, workspace, updateWorkspace, addToast } = useStore();
   const [tab, setTab] = useState<SettingsTab>('account');
   const [nameDraft, setNameDraft] = useState(user.name);
   const [emailDraft, setEmailDraft] = useState(user.email);
@@ -169,38 +166,7 @@ export function Settings() {
             <div className="space-y-6">
               <div>
                 <h2 className="text-lg font-semibold text-white mb-1">Appearance</h2>
-                <p className="text-sm text-white/40">Customize the look and feel</p>
-              </div>
-              <div>
-                <label className="text-xs text-white/40 mb-2 block">Theme</label>
-                <div className="grid grid-cols-3 gap-3">
-                  {[
-                    { id: 'dark', label: 'Dark', icon: Moon, available: true },
-                    { id: 'light', label: 'Light', icon: Sun, available: false },
-                    { id: 'system', label: 'System', icon: Monitor, available: false },
-                  ].map(opt => (
-                    <button
-                      key={opt.id}
-                      disabled={!opt.available}
-                      onClick={() => {
-                        if (opt.id === 'dark' && theme !== 'dark') toggleTheme();
-                      }}
-                      title={opt.available ? undefined : 'Em breve'}
-                      className={cn(
-                        'flex flex-col items-center gap-2 p-4 rounded-xl border transition-all',
-                        !opt.available && 'opacity-40 cursor-not-allowed',
-                        opt.available && theme === 'dark' && opt.id === 'dark'
-                          ? 'border-nexa-500/40 bg-nexa-500/10'
-                          : 'border-white/5',
-                        opt.available && 'hover:border-white/10'
-                      )}
-                    >
-                      <opt.icon className="w-5 h-5 text-white/60" />
-                      <span className="text-sm text-white/70">{opt.label}</span>
-                      {!opt.available && <span className="text-[10px] text-white/30">Em breve</span>}
-                    </button>
-                  ))}
-                </div>
+                <p className="text-sm text-white/40">Customize the accent color</p>
               </div>
               <div>
                 <label className="text-xs text-white/40 mb-2 block">Accent color</label>
