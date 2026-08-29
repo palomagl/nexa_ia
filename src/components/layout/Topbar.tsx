@@ -1,12 +1,10 @@
-import { Bell, HelpCircle, Moon, Sun, Plus, Search } from 'lucide-react';
+import { HelpCircle, Moon, Sun, Plus, Search } from 'lucide-react';
 import { useStore } from '../../store/useStore';
 import { useNavigate } from 'react-router-dom';
-import { useState } from 'react';
 
 export function Topbar() {
   const { theme, toggleTheme, setCommandOpen, workspace } = useStore();
   const navigate = useNavigate();
-  const [notifOpen, setNotifOpen] = useState(false);
 
   return (
     <header className="sticky top-0 z-30 h-16 glass border-b border-white/5 flex items-center justify-between px-4 lg:px-6">
@@ -31,34 +29,6 @@ export function Topbar() {
         <button onClick={toggleTheme} className="btn-ghost p-2.5">
           {theme === 'dark' ? <Sun className="w-[18px] h-[18px]" /> : <Moon className="w-[18px] h-[18px]" />}
         </button>
-
-        <div className="relative">
-          <button onClick={() => setNotifOpen(!notifOpen)} className="btn-ghost p-2.5 relative">
-            <Bell className="w-[18px] h-[18px]" />
-            <span className="absolute top-2 right-2 w-2 h-2 bg-nexa-500 rounded-full glow-dot" />
-          </button>
-          {notifOpen && (
-            <div className="absolute right-0 top-full mt-2 w-80 glass-strong rounded-xl p-4 shadow-2xl animate-slide-up z-50">
-              <p className="font-semibold text-white mb-3">Notifications</p>
-              <div className="space-y-3">
-                {[
-                  { title: 'Build completed', desc: 'Sistema de Estoque deployed successfully', time: '2m ago' },
-                  { title: 'AI suggestion', desc: 'Consider adding TypeScript types', time: '1h ago' },
-                  { title: 'New template', desc: 'Dashboard template available', time: '3h ago' },
-                ].map((n, i) => (
-                  <div key={i} className="flex gap-3 p-2.5 rounded-lg hover:bg-white/5 transition-all cursor-pointer">
-                    <div className="w-2 h-2 rounded-full bg-nexa-500 mt-1.5 flex-shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-white">{n.title}</p>
-                      <p className="text-xs text-white/50 truncate">{n.desc}</p>
-                      <p className="text-[10px] text-white/30 mt-0.5">{n.time}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
 
         <button onClick={() => navigate('/help')} className="btn-ghost p-2.5" title="Ajuda">
           <HelpCircle className="w-[18px] h-[18px]" />

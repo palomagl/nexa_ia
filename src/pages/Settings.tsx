@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import {
-  User, Building2, Sparkles, Github, Palette, Bell,
+  User, Building2, Sparkles, Github, Palette,
   Moon, Sun, Monitor,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useStore } from '../store/useStore';
 
-type SettingsTab = 'account' | 'workspace' | 'ai' | 'github' | 'appearance' | 'notifications';
+type SettingsTab = 'account' | 'workspace' | 'ai' | 'github' | 'appearance';
 
 export function Settings() {
   const { theme, toggleTheme, accentColor, setAccentColor, user, updateUser, workspace, updateWorkspace, addToast } = useStore();
@@ -21,7 +21,6 @@ export function Settings() {
     { id: 'ai', label: 'AI', icon: Sparkles },
     { id: 'github', label: 'GitHub', icon: Github },
     { id: 'appearance', label: 'Appearance', icon: Palette },
-    { id: 'notifications', label: 'Notifications', icon: Bell },
   ];
 
   return (
@@ -228,24 +227,6 @@ export function Settings() {
                   ))}
                 </div>
               </div>
-            </div>
-          )}
-
-          {tab === 'notifications' && (
-            <div className="space-y-6">
-              <div>
-                <h2 className="text-lg font-semibold text-white mb-1">Notifications</h2>
-                <p className="text-sm text-white/40">Manage your notification preferences</p>
-              </div>
-              <div className="space-y-3">
-                {['Build completed', 'Deploy successful', 'AI suggestions', 'Shared project updates', 'Weekly summary'].map(opt => (
-                  <label key={opt} className="flex items-center justify-between p-3 rounded-xl bg-white/[0.02] border border-white/5 cursor-pointer">
-                    <span className="text-sm text-white/70">{opt}</span>
-                    <input type="checkbox" defaultChecked className="rounded border-white/20 bg-white/5 text-nexa-500" />
-                  </label>
-                ))}
-              </div>
-              <button onClick={() => addToast({ type: 'success', title: 'Notification preferences saved' })} className="btn-primary">Save changes</button>
             </div>
           )}
 

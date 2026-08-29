@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Search, Home, Folder, Settings, Plus, Star, Clock, Users,
-  Sparkles, FileText, GitBranch, Rocket, Download,
+  Sparkles, FileText, GitBranch,
 } from 'lucide-react';
 import { useStore } from '../../store/useStore';
 import { cn } from '../../lib/utils';
@@ -24,8 +24,6 @@ export function CommandPalette() {
     { icon: Plus, label: 'Create new project', action: () => navigate('/') },
     { icon: Sparkles, label: 'Create with AI prompt', action: () => navigate('/') },
     { icon: GitBranch, label: 'Connect GitHub', action: () => navigate('/settings') },
-    { icon: Rocket, label: 'Deploy a project', action: () => navigate('/projects') },
-    { icon: Download, label: 'Import from Figma', action: () => navigate('/') },
   ];
 
   const projectCommands = projects.map(p => ({

@@ -2,9 +2,8 @@ import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Mic, Paperclip, Sparkles, ArrowRight, Globe, Layout, BarChart3, Layers,
-  FileArchive, Star, Trash2, Clock, Share2, X, ImageIcon,
+  Star, Trash2, Clock, Share2, X, ImageIcon,
 } from 'lucide-react';
-import { FigmaIcon as Figma, GithubIcon as Github } from '../components/ui/CustomIcons';
 import { useStore } from '../store/useStore';
 import { cn, formatDate, formatServerError, isNetworkError, consumeNDJSONStream, readImageFile, type AttachedImage } from '../lib/utils';
 import { useVoiceInput } from '../lib/useVoiceInput';
@@ -167,12 +166,6 @@ export function Home() {
     { icon: Layers, label: 'Prototype', desc: 'Quick interactive prototype', type: 'prototype', gradient: 'from-violet-400 to-nexa-500' },
   ];
 
-  const imports = [
-    { icon: Figma, label: 'Figma', color: 'text-pink-400' },
-    { icon: Github, label: 'GitHub', color: 'text-white/60' },
-    { icon: FileArchive, label: 'ZIP', color: 'text-amber-400' },
-  ];
-
   const recentProjects = projects.slice(0, 8);
 
   return (
@@ -299,27 +292,6 @@ export function Home() {
             <div className="absolute inset-0 bg-gradient-to-t from-nexa-500/0 to-nexa-500/0 group-hover:from-nexa-500/5 transition-all duration-300 pointer-events-none" />
           </button>
         ))}
-      </div>
-
-      {/* Import */}
-      <div className="mb-10">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="h-px flex-1 bg-white/5" />
-          <span className="text-sm text-white/40 font-medium">Import from</span>
-          <div className="h-px flex-1 bg-white/5" />
-        </div>
-        <div className="flex items-center justify-center gap-3">
-          {imports.map(imp => (
-            <button
-              key={imp.label}
-              onClick={() => addToast({ type: 'info', title: `Import from ${imp.label}`, message: 'This feature will be available soon.' })}
-              className="flex items-center gap-2 px-4 py-2.5 glass rounded-xl hover:border-nexa-500/30 transition-all card-hover"
-            >
-              <imp.icon className={cn('w-4 h-4', imp.color)} />
-              <span className="text-sm text-white/70">{imp.label}</span>
-            </button>
-          ))}
-        </div>
       </div>
 
       {/* Recent Projects */}
