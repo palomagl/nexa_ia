@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-  Code2, Eye, MessageSquare, Terminal as TerminalIcon, History, Github, Rocket,
+  Code2, Eye, MessageSquare, History, Github, Rocket,
   PanelLeft, Sparkles, Download, ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import { useStore } from '../store/useStore';
@@ -10,14 +10,12 @@ import { FileExplorer } from '../components/workspace/FileExplorer';
 import { Preview } from '../components/workspace/Preview';
 import { AIChat } from '../components/workspace/AIChat';
 import { CodeEditor } from '../components/workspace/CodeEditor';
-import { Terminal } from '../components/workspace/Terminal';
 import { VersionsPanel } from '../components/workspace/VersionsPanel';
 import { Modal } from '../components/ui/Modal';
 import { Dropdown } from '../components/ui/Dropdown';
 
 type ViewMode = 'preview' | 'code';
 type RightView = 'chat' | 'history';
-type BottomPanel = 'terminal' | 'none';
 
 export function ProjectWorkspace() {
   const { id } = useParams();
@@ -30,7 +28,6 @@ export function ProjectWorkspace() {
 
   const [view, setView] = useState<ViewMode>('preview');
   const [rightView, setRightView] = useState<RightView>('chat');
-  const [bottomPanel, setBottomPanel] = useState<BottomPanel>('none');
   const [showExplorer, setShowExplorer] = useState(
     () => typeof window !== 'undefined' && window.innerWidth >= 1440
   );
@@ -219,11 +216,6 @@ export function ProjectWorkspace() {
                 },
               },
               {
-                label: bottomPanel === 'terminal' ? 'Fechar terminal' : 'Terminal',
-                icon: <TerminalIcon className="w-3.5 h-3.5" />,
-                onClick: () => setBottomPanel(p => (p === 'terminal' ? 'none' : 'terminal')),
-              },
-              {
                 label: 'Push to GitHub',
                 icon: <Github className="w-3.5 h-3.5" />,
                 onClick: () => setShowGithubModal(true),
@@ -295,12 +287,6 @@ export function ProjectWorkspace() {
               </div>
             )}
           </div>
-
-          {bottomPanel === 'terminal' && (
-            <div className="h-44 flex-shrink-0 border-t border-white/[0.06]">
-              <Terminal />
-            </div>
-          )}
         </section>
 
         {!showRight && !isCompact && (
