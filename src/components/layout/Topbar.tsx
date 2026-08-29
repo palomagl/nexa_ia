@@ -1,12 +1,10 @@
 import { Bell, HelpCircle, Moon, Sun, Plus, Search } from 'lucide-react';
 import { useStore } from '../../store/useStore';
-import { currentWorkspace } from '../../data/mockData';
 import { useNavigate } from 'react-router-dom';
-import { cn } from '../../lib/utils';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 
 export function Topbar({ onNewProject }: { onNewProject?: () => void }) {
-  const { theme, toggleTheme, setCommandOpen } = useStore();
+  const { theme, toggleTheme, setCommandOpen, workspace } = useStore();
   const navigate = useNavigate();
   const [notifOpen, setNotifOpen] = useState(false);
 
@@ -16,12 +14,10 @@ export function Topbar({ onNewProject }: { onNewProject?: () => void }) {
         <div className="flex items-center gap-2 text-sm">
           <span className="text-white/40">Workspace</span>
           <span className="text-white/20">/</span>
-          <span className="font-medium text-white">{currentWorkspace.name}</span>
+          <span className="font-medium text-white">{workspace.name}</span>
         </div>
         <div className="hidden md:flex items-center gap-1 ml-4">
-          <button className="btn-ghost text-sm">Build</button>
-          <button className="btn-ghost text-sm">Deploy</button>
-          <button className="btn-ghost text-sm">Analytics</button>
+          <button onClick={() => navigate('/projects')} className="btn-ghost text-sm">Deploy</button>
         </div>
       </div>
 
@@ -67,7 +63,7 @@ export function Topbar({ onNewProject }: { onNewProject?: () => void }) {
           )}
         </div>
 
-        <button className="btn-ghost p-2.5">
+        <button onClick={() => navigate('/help')} className="btn-ghost p-2.5" title="Ajuda">
           <HelpCircle className="w-[18px] h-[18px]" />
         </button>
 

@@ -1,54 +1,155 @@
 import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Plus, Mic, Paperclip, Sparkles, ArrowRight, Globe, Layout, BarChart3, Layers,
-  FileArchive, Star, MoreVertical, Clock, Share2,
+  Mic, Paperclip, Sparkles, ArrowRight, Globe, Layout, BarChart3, Layers,
+  FileArchive, Star, Trash2, Clock, Share2, X, ImageIcon,
 } from 'lucide-react';
 import { FigmaIcon as Figma, GithubIcon as Github } from '../components/ui/CustomIcons';
 import { useStore } from '../store/useStore';
-import { cn, formatDate } from '../lib/utils';
+import { cn, formatDate, formatServerError, isNetworkError, consumeNDJSONStream, readImageFile, type AttachedImage } from '../lib/utils';
+import { useVoiceInput } from '../lib/useVoiceInput';
 import { Dropdown } from '../components/ui/Dropdown';
 import type { ProjectType } from '../types';
 
 export function Home() {
   const navigate = useNavigate();
-  const { projects, createProject, toggleStar, addToast } = useStore();
+  const { projects, createProject, deleteProject, toggleStar, addToast, removeToast } = useStore();
   const [prompt, setPrompt] = useState('');
   const [generating, setGenerating] = useState(false);
+  const [phaseLabel, setPhaseLabel] = useState('');
+  const [streamedChars, setStreamedChars] = useState(0);
+  const [attachedImage, setAttachedImage] = useState<AttachedImage | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleGenerate = async () => {
-    if (!prompt.trim()) return;
-    setGenerating(true);
-    
-    addToast({ type: 'loading', title: 'AI is building your project', message: 'Connecting to server and generating code...' });
+  const { listening, toggleListening } = useVoiceInput({
+    onResult: transcript => setPrompt(p => (p ? `${p} ${transcript}` : transcript)),
+    onError: message => addToast({ type: 'error', title: 'Ditado por voz', message }),
+  });
+
+  const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
 
     try {
-      // Fazendo a chamada real para o nosso servidor Node.js
+      const image = await readImageFile(file);
+      setAttachedImage(image);
+    } catch (error) {
+      addToast({
+        type: 'error',
+        title: 'Não foi possível anexar a imagem',
+        message: error instanceof Error ? error.message : undefined,
+      });
+    }
+  };
+
+  const handleGenerate = async () => {
+
+    if (!prompt.trim()) return;
+    setGenerating(true);
+    setPhaseLabel('Conectando ao servidor...');
+    setStreamedChars(0);
+
+    const loadingToastId = addToast({
+      type: 'loading',
+      title: 'AI is building your project',
+      message: 'Connecting to server and generating code...',
+    });
+
+    try {
       const response = await fetch('http://localhost:3000/api/generate', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ prompt: prompt.trim() }),
+        body: JSON.stringify({ prompt: prompt.trim(), attachment: attachedImage || undefined }),
       });
 
-      const data = await response.json();
-
+      // Erro antes do stream começar (ex.: prompt vazio) ainda vem como JSON normal.
       if (!response.ok) {
-        throw new Error(data.error || 'Erro ao gerar projeto');
+        let data: { error?: string; details?: string } = {};
+        try {
+          data = await response.json();
+        } catch {
+          data = {};
+        }
+        throw new Error(formatServerError(response.status, data, 'Erro ao gerar o projeto.'));
       }
 
-      // Cria o projeto localmente usando o retorno do servidor (ou o prompt)
-      const id = createProject(prompt.trim());
-      
+      type GenerateResult = {
+        code?: string;
+        files?: { name: string; content: string }[];
+        explanation?: string;
+        brokenFiles?: { name: string; error: string }[];
+      };
+
+      let finalResult: GenerateResult | null = null;
+      let streamError: { error?: string; details?: string } | null = null;
+
+      await consumeNDJSONStream<
+        | { type: 'chunk'; text: string }
+        | { type: 'phase'; phase: string; label?: string }
+        | { type: 'provider_switch' }
+        | { type: 'done'; code: string; files?: { name: string; content: string }[]; explanation?: string; brokenFiles?: { name: string; error: string }[] }
+        | { type: 'error'; error?: string; details?: string }
+      >(response, event => {
+        if (event.type === 'chunk') {
+          setStreamedChars(c => c + (event.text?.length || 0));
+        } else if (event.type === 'phase') {
+          setPhaseLabel(event.label || event.phase);
+          setStreamedChars(0);
+        } else if (event.type === 'provider_switch') {
+          setStreamedChars(0);
+        } else if (event.type === 'done') {
+          finalResult = event;
+        } else if (event.type === 'error') {
+          streamError = event;
+        }
+      });
+
+      if (streamError) {
+        throw new Error((streamError as any).details || (streamError as any).error || 'Erro ao gerar o projeto.');
+      }
+
+      if (!finalResult) {
+        throw new Error('O servidor não retornou o projeto gerado.');
+      }
+
+      const result = finalResult as GenerateResult;
+      const id = createProject(prompt.trim(), 'app', result.files, result.explanation);
+
+      if (result.brokenFiles && result.brokenFiles.length > 0) {
+        addToast({
+          type: 'error',
+          title: 'Alguns arquivos ficaram com erro',
+          message: `${result.brokenFiles.map(f => f.name).join(', ')} — a IA não conseguiu corrigir automaticamente. Peça no chat pra tentar de novo.`,
+        });
+      }
+
+      removeToast(loadingToastId);
       setGenerating(false);
+      setPhaseLabel('');
       setPrompt('');
+      setAttachedImage(null);
       navigate(`/project/${id}`);
     } catch (error) {
       console.error(error);
+      removeToast(loadingToastId);
       setGenerating(false);
-      addToast({ type: 'error', title: 'Generation failed', message: 'Could not connect to the Nexa AI server.' });
+      setPhaseLabel('');
+
+      const message = isNetworkError(error)
+        ? 'Não foi possível conectar. Verifique se o servidor Express está rodando em http://localhost:3000.'
+        : error instanceof Error
+          ? error.message
+          : 'Erro ao gerar o projeto.';
+
+      addToast({
+        type: 'error',
+        title: 'Falha ao gerar o projeto',
+        message,
+      });
     }
   };
 
@@ -92,6 +193,19 @@ export function Home() {
       <div className="relative max-w-3xl mx-auto mb-8 animate-slide-up">
         <div className="absolute inset-0 gradient-nexa opacity-20 blur-2xl rounded-3xl" />
         <div className="relative glass-strong rounded-2xl p-2 shadow-2xl">
+          {attachedImage && (
+            <div className="flex items-center gap-2 mx-2 mt-2 px-2.5 py-1.5 rounded-lg bg-white/[0.04] border border-white/10 w-fit max-w-full">
+              <ImageIcon className="w-3.5 h-3.5 text-nexa-400 flex-shrink-0" />
+              <span className="text-xs text-white/70 truncate">{attachedImage.name}</span>
+              <button
+                onClick={() => setAttachedImage(null)}
+                className="p-0.5 rounded text-white/40 hover:text-white hover:bg-white/10 flex-shrink-0"
+                title="Remover anexo"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
           <textarea
             ref={textareaRef}
             value={prompt}
@@ -103,13 +217,28 @@ export function Home() {
           />
           <div className="flex items-center justify-between px-2 pb-1">
             <div className="flex items-center gap-1">
-              <button className="p-2 rounded-lg text-white/40 hover:text-white hover:bg-white/5 transition-all" title="Add file">
-                <Plus className="w-[18px] h-[18px]" />
-              </button>
-              <button className="p-2 rounded-lg text-white/40 hover:text-white hover:bg-white/5 transition-all" title="Attach">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleFileSelected}
+                className="hidden"
+              />
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="p-2 rounded-lg text-white/40 hover:text-white hover:bg-white/5 transition-all"
+                title="Anexar imagem"
+              >
                 <Paperclip className="w-[18px] h-[18px]" />
               </button>
-              <button className="p-2 rounded-lg text-white/40 hover:text-white hover:bg-white/5 transition-all" title="Voice">
+              <button
+                onClick={toggleListening}
+                className={cn(
+                  'p-2 rounded-lg transition-all',
+                  listening ? 'text-red-400 bg-red-500/10 animate-pulse' : 'text-white/40 hover:text-white hover:bg-white/5'
+                )}
+                title={listening ? 'Parar ditado' : 'Ditar por voz'}
+              >
                 <Mic className="w-[18px] h-[18px]" />
               </button>
               <div className="h-4 w-px bg-white/10 mx-1" />
@@ -131,7 +260,9 @@ export function Home() {
                 {generating ? (
                   <>
                     <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    Generating...
+                    {streamedChars > 0
+                      ? `Generating… ${streamedChars.toLocaleString()} chars`
+                      : phaseLabel || 'Generating...'}
                   </>
                 ) : (
                   <>
@@ -237,8 +368,28 @@ export function Home() {
                     items={[
                       { label: 'Open', icon: <ArrowRight className="w-3.5 h-3.5" />, onClick: () => navigate(`/project/${p.id}`) },
                       { label: p.starred ? 'Unstar' : 'Star', icon: <Star className="w-3.5 h-3.5" />, onClick: () => toggleStar(p.id) },
-                      { label: 'Share', icon: <Share2 className="w-3.5 h-3.5" />, onClick: () => addToast({ type: 'info', title: 'Share link copied' }) },
-                      { label: 'Delete', icon: <MoreVertical className="w-3.5 h-3.5" />, danger: true, onClick: () => addToast({ type: 'info', title: 'Project deleted' }) },
+                      {
+                        label: 'Share',
+                        icon: <Share2 className="w-3.5 h-3.5" />,
+                        onClick: () => {
+                          const url = `${window.location.origin}/project/${p.id}`;
+                          navigator.clipboard
+                            .writeText(url)
+                            .then(() => addToast({ type: 'success', title: 'Link copiado!', message: url }))
+                            .catch(() => addToast({ type: 'error', title: 'Não foi possível copiar o link' }));
+                        },
+                      },
+                      {
+                        label: 'Delete',
+                        icon: <Trash2 className="w-3.5 h-3.5" />,
+                        danger: true,
+                        onClick: () => {
+                          if (window.confirm(`Excluir "${p.name}"? Essa ação não pode ser desfeita.`)) {
+                            deleteProject(p.id);
+                            addToast({ type: 'success', title: 'Projeto excluído' });
+                          }
+                        },
+                      },
                     ]}
                   />
                 </div>

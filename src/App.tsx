@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Routes, Route, useLocation } from 'react-router-dom';
 import { Sidebar } from './components/layout/Sidebar';
 import { Topbar } from './components/layout/Topbar';
@@ -7,21 +8,32 @@ import { Home } from './pages/Home';
 import { Projects } from './pages/Projects';
 import { ProjectWorkspace } from './pages/ProjectWorkspace';
 import { Settings } from './pages/Settings';
+import { Help } from './pages/Help';
 import { FilteredProjects } from './pages/FilteredProjects';
 import { useStore } from './store/useStore';
 import { cn } from './lib/utils';
 
 function App() {
-  const { sidebarCollapsed } = useStore();
+  const { sidebarCollapsed, accentColor } = useStore();
   const location = useLocation();
   const isWorkspace = location.pathname.startsWith('/project/');
 
+  useEffect(() => {
+    document.documentElement.dataset.accent = accentColor;
+  }, [accentColor]);
+
   return (
     <div className="min-h-screen bg-bg-900">
-      <Sidebar />
-      <div className={cn('transition-all duration-300', sidebarCollapsed ? 'ml-16' : 'ml-64')}>
+      {!isWorkspace && <Sidebar />}
+      <div
+        className={cn(
+          isWorkspace
+            ? 'ml-0'
+            : cn('transition-all duration-300', sidebarCollapsed ? 'ml-16' : 'ml-64')
+        )}
+      >
         {!isWorkspace && <Topbar />}
-        <main className={isWorkspace ? '' : 'min-h-[calc(100vh-4rem)]'}>
+        <main className={isWorkspace ? 'h-screen overflow-hidden' : 'min-h-[calc(100vh-4rem)]'}>
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/projects" element={<Projects />} />
@@ -30,10 +42,7 @@ function App() {
             <Route path="/recent" element={<FilteredProjects filter="recent" />} />
             <Route path="/shared" element={<FilteredProjects filter="shared" />} />
             <Route path="/settings" element={<Settings />} />
-            <Route path="/help" element={<div className="p-8 text-center text-white/40">Help Center — coming soon</div>} />
-            <Route path="/docs" element={<div className="p-8 text-center text-white/40">Documentation — coming soon</div>} />
-            <Route path="/updates" element={<div className="p-8 text-center text-white/40">Updates — coming soon</div>} />
-            <Route path="/status" element={<div className="p-8 text-center text-white/40">Status — coming soon</div>} />
+            <Route path="/help" element={<Help />} />
           </Routes>
         </main>
       </div>

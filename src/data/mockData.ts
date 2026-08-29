@@ -60,7 +60,7 @@ function makeChat(prompt: string): ChatMessage[] {
   ];
 }
 
-function makeVersions(): Version[] {
+function makeVersions(files: FileNode[]): Version[] {
   const now = Date.now();
   return Array.from({ length: 5 }, (_, i) => ({
     id: `v${i}`,
@@ -68,6 +68,8 @@ function makeVersions(): Version[] {
     label: i === 0 ? 'Current' : `Version ${12 - i}`,
     timestamp: new Date(now - i * 3600000).toISOString(),
     description: i === 0 ? 'Updated login styling' : i === 1 ? 'Added dashboard page' : i === 2 ? 'Initial setup' : 'Color tweaks',
+    // Dado mock: todas as versões apontam pro mesmo snapshot atual.
+    filesSnapshot: files,
   }));
 }
 
@@ -95,21 +97,6 @@ export const mockProjects: Project[] = projectDefs.map((p, i) => ({
   prompt: p.prompt,
   files: makeFiles(p.name),
   chat: makeChat(p.prompt),
-  versions: makeVersions(),
-  previewHtml: `<div style="font-family:Inter,sans-serif;background:linear-gradient(135deg,#0a0a0f,#1d1c33);min-height:100vh;padding:48px;color:white;">
-    <h1 style="font-size:48px;font-weight:800;background:linear-gradient(135deg,#a875ff,#8b5cf6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin:0 0 16px;">${p.name}</h1>
-    <p style="font-size:18px;opacity:0.6;margin:0 0 32px;">${p.description}</p>
-    <div style="display:flex;gap:12px;">
-      <div style="padding:12px 24px;background:linear-gradient(135deg,#7e22ce,#9333ea);border-radius:12px;font-weight:600;">Get Started</div>
-      <div style="padding:12px 24px;border:1px solid rgba(255,255,255,0.1);border-radius:12px;">Learn More</div>
-    </div>
-    <div style="margin-top:48px;display:grid;grid-template-columns:repeat(3,1fr);gap:16px;">
-      ${[1, 2, 3].map(n => `<div style="padding:24px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.05);border-radius:16px;">
-        <div style="width:40px;height:40px;background:rgba(147,51,234,0.2);border-radius:12px;margin-bottom:16px;"></div>
-        <h3 style="margin:0 0 8px;">Feature ${n}</h3>
-        <p style="margin:0;font-size:14px;opacity:0.5;">Description for feature ${n}</p>
-      </div>`).join('')}
-    </div>
-  </div>`,
+  versions: makeVersions(makeFiles(p.name)),
   deployUrl: i === 3 ? 'https://doeplus-rs.nexa.ai' : undefined,
 }));

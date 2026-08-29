@@ -1,4 +1,4 @@
-import { History, RotateCcw, Check, GitBranch } from 'lucide-react';
+import { History, RotateCcw, GitBranch } from 'lucide-react';
 import type { Version } from '../../types';
 import { useStore } from '../../store/useStore';
 import { formatDate } from '../../lib/utils';
@@ -10,7 +10,7 @@ interface Props {
 }
 
 export function VersionsPanel({ projectId, versions }: Props) {
-  const { addToast, createCheckpoint } = useStore();
+  const { addToast, createCheckpoint, restoreVersion } = useStore();
 
   return (
     <div className="h-full flex flex-col">
@@ -53,8 +53,13 @@ export function VersionsPanel({ projectId, versions }: Props) {
                   </div>
                   {i !== 0 && (
                     <button
-                      onClick={(e) => { e.stopPropagation(); addToast({ type: 'info', title: `Restored to ${v.label}`, message: 'Project reverted to this version' }); }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        restoreVersion(projectId, v.id);
+                        addToast({ type: 'success', title: `Restaurado para ${v.label}`, message: 'Os arquivos do projeto foram revertidos.' });
+                      }}
                       className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg text-white/40 hover:text-white hover:bg-white/10 transition-all"
+                      title="Restaurar esta versão"
                     >
                       <RotateCcw className="w-3.5 h-3.5" />
                     </button>

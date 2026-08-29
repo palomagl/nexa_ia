@@ -2,6 +2,86 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+|--------------------------------------------------------------------------
+| TONS DE ROXO — trocáveis em tempo real via [data-accent] em <html>
+|--------------------------------------------------------------------------
+|
+| Cada variável é um "R G B" separado por espaço (padrão do Tailwind pra
+| dar pra usar com opacidade: rgb(var(--nexa-500) / 0.5)). O preset padrão
+| (roxo nexa) fica no :root; os outros presets sobrescrevem as mesmas
+| variáveis quando [data-accent="..."] está presente no <html>.
+*/
+
+:root {
+  /* Roxo Nexa (padrão) */
+  --nexa-50: 245 240 255;
+  --nexa-100: 237 228 255;
+  --nexa-200: 220 200 255;
+  --nexa-300: 196 163 255;
+  --nexa-400: 168 117 255;
+  --nexa-500: 147 51 234;
+  --nexa-600: 126 34 206;
+  --nexa-700: 103 31 176;
+  --nexa-800: 85 29 143;
+  --nexa-900: 59 22 102;
+  --nexa-950: 37 14 69;
+  --violet-400: 167 139 250;
+  --violet-500: 139 92 246;
+  --violet-600: 124 58 237;
+}
+
+:root[data-accent='violeta'] {
+  --nexa-50: 245 243 255;
+  --nexa-100: 237 233 254;
+  --nexa-200: 221 214 254;
+  --nexa-300: 196 181 253;
+  --nexa-400: 167 139 250;
+  --nexa-500: 139 92 246;
+  --nexa-600: 124 58 237;
+  --nexa-700: 109 40 217;
+  --nexa-800: 91 33 182;
+  --nexa-900: 76 29 149;
+  --nexa-950: 46 16 101;
+  --violet-400: 192 132 252;
+  --violet-500: 168 85 247;
+  --violet-600: 147 51 234;
+}
+
+:root[data-accent='ameixa'] {
+  --nexa-50: 250 245 255;
+  --nexa-100: 243 232 255;
+  --nexa-200: 233 213 255;
+  --nexa-300: 216 180 254;
+  --nexa-400: 192 132 252;
+  --nexa-500: 168 85 247;
+  --nexa-600: 147 51 234;
+  --nexa-700: 126 34 206;
+  --nexa-800: 107 33 168;
+  --nexa-900: 88 28 135;
+  --nexa-950: 59 7 100;
+  --violet-400: 232 121 249;
+  --violet-500: 217 70 239;
+  --violet-600: 192 38 211;
+}
+
+:root[data-accent='profundo'] {
+  --nexa-50: 238 242 255;
+  --nexa-100: 224 231 255;
+  --nexa-200: 199 210 254;
+  --nexa-300: 165 180 252;
+  --nexa-400: 129 140 248;
+  --nexa-500: 99 102 241;
+  --nexa-600: 79 70 229;
+  --nexa-700: 67 56 202;
+  --nexa-800: 55 48 163;
+  --nexa-900: 49 46 129;
+  --nexa-950: 30 27 75;
+  --violet-400: 124 58 237;
+  --violet-500: 109 40 217;
+  --violet-600: 91 33 182;
+}
+
 @layer base {
   * {
     @apply border-white/5;
@@ -25,10 +105,10 @@
     @apply bg-gradient-to-r from-nexa-300 via-violet-400 to-nexa-400 bg-clip-text text-transparent;
   }
   .gradient-nexa {
-    background-image: linear-gradient(135deg, #7e22ce 0%, #9333ea 40%, #8b5cf6 100%);
+    background-image: linear-gradient(135deg, rgb(var(--nexa-600)) 0%, rgb(var(--nexa-500)) 40%, rgb(var(--violet-500)) 100%);
   }
   .gradient-nexa-soft {
-    background-image: linear-gradient(135deg, rgba(126,34,206,0.15) 0%, rgba(147,51,234,0.08) 100%);
+    background-image: linear-gradient(135deg, rgb(var(--nexa-600) / 0.15) 0%, rgb(var(--nexa-500) / 0.08) 100%);
   }
   .glass {
     @apply bg-bg-800/60 backdrop-blur-xl border border-white/5;

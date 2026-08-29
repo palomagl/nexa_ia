@@ -8,7 +8,7 @@ import { useStore } from '../../store/useStore';
 import { cn } from '../../lib/utils';
 
 export function CommandPalette() {
-  const { commandOpen, setCommandOpen, projects, createProject } = useStore();
+  const { commandOpen, setCommandOpen, projects } = useStore();
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState(0);

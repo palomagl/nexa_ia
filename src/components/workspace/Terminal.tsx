@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Terminal as TerminalIcon, X, Plus, ChevronDown, Trash2 } from 'lucide-react';
+import { Terminal as TerminalIcon, Plus, ChevronDown, Trash2 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
 interface TerminalLine {

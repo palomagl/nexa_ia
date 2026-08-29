@@ -1,7 +1,21 @@
 import { create } from 'zustand';
 import { nanoid } from 'nanoid';
-import type { Project, Toast, ChatMessage, FileNode, Version, ProjectType } from '../types';
+import type { Project, Toast, ChatMessage, FileNode, Version, ProjectType, AccentColor, User, Workspace } from '../types';
 import { mockProjects, currentUser, currentWorkspace } from '../data/mockData';
+import { buildFileNodes, upsertFileByPath, removeFileByPath, type GeneratedFile } from '../lib/fileTree';
+
+const ACCENT_STORAGE_KEY = 'nexa-accent-color';
+
+function getStoredAccentColor(): AccentColor {
+  if (typeof window === 'undefined') return 'roxo';
+  try {
+    const stored = window.localStorage.getItem(ACCENT_STORAGE_KEY);
+    if (stored === 'roxo' || stored === 'violeta' || stored === 'ameixa' || stored === 'profundo') return stored;
+  } catch {
+    // localStorage indisponível (ex.: modo privado) — usa o padrão
+  }
+  return 'roxo';
+}
 
 interface AppState {
   sidebarCollapsed: boolean;
@@ -11,8 +25,19 @@ interface AppState {
   theme: 'dark' | 'light';
   toggleTheme: () => void;
 
+  accentColor: AccentColor;
+  setAccentColor: (color: AccentColor) => void;
+
+  user: User;
+  updateUser: (patch: Partial<Pick<User, 'name' | 'email'>>) => void;
+
+  workspace: Workspace;
+  updateWorkspace: (patch: Partial<Pick<Workspace, 'name'>>) => void;
+
   projects: Project[];
-  createProject: (prompt: string, type?: ProjectType) => string;
+  // generatedFiles: lista de arquivos vindos da IA (App.tsx + possíveis
+  // components/*.tsx). Cada um vira um FileNode real na árvore do projeto.
+  createProject: (prompt: string, type?: ProjectType, generatedFiles?: GeneratedFile[], explanation?: string) => string;
   updateProject: (id: string, patch: Partial<Project>) => void;
   deleteProject: (id: string) => void;
   toggleStar: (id: string) => void;
@@ -27,8 +52,15 @@ interface AppState {
   deleteFile: (projectId: string, fileId: string) => void;
   renameFile: (projectId: string, fileId: string, name: string) => void;
 
+  // Edição incremental orientada por caminho (usada pela IA no chat): cria
+  // ou atualiza um único arquivo pelo seu caminho ("components/Header.tsx"),
+  // criando pastas intermediárias automaticamente quando necessário.
+  applyGeneratedFile: (projectId: string, path: string, content: string) => void;
+  removeGeneratedFile: (projectId: string, path: string) => void;
+
   versions: Record<string, Version[]>;
   createCheckpoint: (projectId: string, description: string) => void;
+  restoreVersion: (projectId: string, versionId: string) => void;
 
   toasts: Toast[];
   addToast: (t: Omit<Toast, 'id'>) => string;
@@ -46,35 +78,62 @@ export const useStore = create<AppState>((set, get) => ({
   theme: 'dark',
   toggleTheme: () => set(s => ({ theme: s.theme === 'dark' ? 'light' : 'dark' })),
 
+  accentColor: getStoredAccentColor(),
+  setAccentColor: color => {
+    try {
+      window.localStorage.setItem(ACCENT_STORAGE_KEY, color);
+    } catch {
+      // localStorage indisponível — a cor ainda muda nesta sessão
+    }
+    set({ accentColor: color });
+  },
+
+  user: currentUser,
+  updateUser: patch => set(s => ({ user: { ...s.user, ...patch } })),
+
+  workspace: currentWorkspace,
+  updateWorkspace: patch => set(s => ({ workspace: { ...s.workspace, ...patch } })),
+
   projects: mockProjects,
-  createProject: (prompt, type = 'app') => {
+  createProject: (prompt, type = 'app', generatedFiles, explanation) => {
     const id = nanoid();
     const now = new Date().toISOString();
     const name = prompt.slice(0, 40) + (prompt.length > 40 ? '...' : 'Project');
+
+    // Usa os arquivos gerados pela IA (pode ser só App.tsx, ou App.tsx +
+    // vários components/*.tsx) ou um fallback de uma página se não vier nada.
+    const files = generatedFiles && generatedFiles.length > 0
+      ? buildFileNodes(generatedFiles)
+      : buildFileNodes([{
+          name: 'App.tsx',
+          content: `function App() {\n  return (\n    <div className="p-8 bg-slate-950 text-white min-h-screen">\n      <h1 className="text-2xl font-bold">${prompt}</h1>\n    </div>\n  );\n}`,
+        }]);
+
     const newProject: Project = {
       id,
       name,
       description: prompt,
       type,
-      status: 'building',
+      status: 'live', // Muda de 'building' para 'live' para destravar a tela imediatamente!
       lastModified: now,
       createdAt: now,
       starred: false,
       shared: false,
       previewGradient: 'from-nexa-600 to-violet-500',
       prompt,
-      files: [
-        { id: 'f1', name: 'src', type: 'folder', parentId: null, children: ['f2', 'f3'] },
-        { id: 'f2', name: 'App.tsx', type: 'file', parentId: 'f1', language: 'tsx', content: `export default function App() {\n  return <div>Hello from ${name}</div>;\n}` },
-        { id: 'f3', name: 'main.tsx', type: 'file', parentId: 'f1', language: 'tsx', content: 'import ReactDOM from "react-dom/client";' },
-        { id: 'f4', name: 'package.json', type: 'file', parentId: null, language: 'json', content: '{}' },
-      ],
+      files,
       chat: [
         { id: nanoid(), role: 'user', content: prompt, timestamp: now, status: 'sent' },
-        { id: nanoid(), role: 'assistant', content: 'I am setting up your project. I will create the initial structure and components based on your request.', timestamp: now, status: 'sending' },
+        { 
+          id: nanoid(), 
+          role: 'assistant', 
+          // Se recebeu a explicação do servidor, exibe ela no chat. Senão, usa a padrão.
+          content: explanation || 'Projeto gerado e conectado com sucesso ao Gemini!', 
+          timestamp: now, 
+          status: 'sent' 
+        },
       ],
-      versions: [{ id: nanoid(), version: 1, label: 'Current', timestamp: now, description: 'Initial commit' }],
-      previewHtml: `<div style="font-family:Inter,sans-serif;background:#0a0a0f;min-height:100vh;padding:48px;color:white;"><h1>Building ${name}...</h1><p>Setting up project</p></div>`,
+      versions: [{ id: nanoid(), version: 1, label: 'Current', timestamp: now, description: 'Initial commit', filesSnapshot: files }],
     };
     set(s => ({ projects: [newProject, ...s.projects] }));
     return id;
@@ -148,16 +207,67 @@ export const useStore = create<AppState>((set, get) => ({
       ),
     })),
 
+  applyGeneratedFile: (projectId, path, content) =>
+    set(s => ({
+      projects: s.projects.map(p =>
+        p.id === projectId
+          ? { ...p, files: upsertFileByPath(p.files, path, content), lastModified: new Date().toISOString() }
+          : p
+      ),
+    })),
+  removeGeneratedFile: (projectId, path) =>
+    set(s => ({
+      projects: s.projects.map(p =>
+        p.id === projectId
+          ? { ...p, files: removeFileByPath(p.files, path), lastModified: new Date().toISOString() }
+          : p
+      ),
+    })),
+
   versions: {},
   createCheckpoint: (projectId, description) =>
     set(s => {
       const project = s.projects.find(p => p.id === projectId);
       if (!project) return s;
       const nextVer = (project.versions[0]?.version || 0) + 1;
-      const newVersion: Version = { id: nanoid(), version: nextVer, label: 'Current', timestamp: new Date().toISOString(), description };
+      const newVersion: Version = {
+        id: nanoid(),
+        version: nextVer,
+        label: 'Current',
+        timestamp: new Date().toISOString(),
+        description,
+        filesSnapshot: project.files,
+      };
       const updatedVersions = [newVersion, ...project.versions.map(v => ({ ...v, label: `Version ${v.version}` }))];
       return {
         projects: s.projects.map(p => (p.id === projectId ? { ...p, versions: updatedVersions } : p)),
+      };
+    }),
+  restoreVersion: (projectId, versionId) =>
+    set(s => {
+      const project = s.projects.find(p => p.id === projectId);
+      const target = project?.versions.find(v => v.id === versionId);
+      if (!project || !target) return s;
+
+      // Restaurar cria um NOVO checkpoint com os arquivos de volta ao
+      // estado antigo — como um "revert" de verdade, sem apagar histórico.
+      const nextVer = (project.versions[0]?.version || 0) + 1;
+      const revertVersion: Version = {
+        id: nanoid(),
+        version: nextVer,
+        label: 'Current',
+        timestamp: new Date().toISOString(),
+        description: `Restaurado para "${target.label}"`,
+        filesSnapshot: target.filesSnapshot,
+      };
+      const updatedVersions = [revertVersion, ...project.versions.map(v => ({ ...v, label: `Version ${v.version}` }))];
+
+      return {
+        projects: s.projects.map(p =>
+          p.id === projectId
+            ? { ...p, files: target.filesSnapshot, versions: updatedVersions, lastModified: new Date().toISOString() }
+            : p
+        ),
       };
     }),
 

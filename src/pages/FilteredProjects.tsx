@@ -9,7 +9,7 @@ interface Props {
 
 const config = {
   starred: { title: 'Starred Projects', icon: Star, desc: 'Projects you have starred', filter: (p: any) => p.starred },
-  recent: { title: 'Recently Viewed', icon: Clock, desc: 'Projects you recently opened', filter: (p: any) => true },
+  recent: { title: 'Recently Viewed', icon: Clock, desc: 'Projects you recently opened', filter: () => true },
   shared: { title: 'Shared with you', icon: Users, desc: 'Projects others shared with you', filter: (p: any) => p.shared },
 };
 

@@ -12,9 +12,10 @@ interface Props {
   files: FileNode[];
   activeFileId: string | null;
   onSelectFile: (id: string) => void;
+  onCollapse?: () => void;
 }
 
-export function FileExplorer({ projectId, files, activeFileId, onSelectFile }: Props) {
+export function FileExplorer({ projectId, files, activeFileId, onSelectFile, onCollapse }: Props) {
   const { addFile, deleteFile } = useStore();
   const [expanded, setExpanded] = useState<Set<string>>(new Set(['f1', 'f5']));
   const [showRootMenu, setShowRootMenu] = useState(false);
@@ -43,7 +44,7 @@ export function FileExplorer({ projectId, files, activeFileId, onSelectFile }: P
       <div key={node.id}>
         <div
           className={cn(
-            'group flex items-center gap-1.5 pr-2 py-1 rounded-md cursor-pointer text-sm transition-all',
+            'group flex items-center gap-1.5 pr-1.5 py-0.5 rounded-md cursor-pointer text-[13px] transition-colors',
             activeFileId === node.id ? 'bg-nexa-500/15 text-white' : 'text-white/60 hover:bg-white/5 hover:text-white'
           )}
           style={{ paddingLeft: `${depth * 12 + 8}px` }}
@@ -77,7 +78,8 @@ export function FileExplorer({ projectId, files, activeFileId, onSelectFile }: P
     <div className="h-full flex flex-col">
       <div className="flex items-center justify-between px-3 py-2.5 border-b border-white/5">
         <span className="text-xs font-semibold uppercase tracking-wider text-white/40">Explorer</span>
-        <div className="relative">
+        <div className="flex items-center gap-1">
+          <div className="relative">
           <button onClick={() => setShowRootMenu(!showRootMenu)} className="p-1 rounded hover:bg-white/5 text-white/40 hover:text-white">
             <MoreHorizontal className="w-3.5 h-3.5" />
           </button>
@@ -96,6 +98,16 @@ export function FileExplorer({ projectId, files, activeFileId, onSelectFile }: P
                 <Folder className="w-3 h-3" /> New Folder
               </button>
             </div>
+          )}
+          </div>
+          {onCollapse && (
+            <button
+              onClick={onCollapse}
+              className="p-1 rounded hover:bg-white/5 text-white/40 hover:text-white"
+              title="Esconder painel"
+            >
+              <ChevronRight className="w-3.5 h-3.5 rotate-180" />
+            </button>
           )}
         </div>
       </div>
