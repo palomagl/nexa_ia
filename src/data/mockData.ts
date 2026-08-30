@@ -24,8 +24,8 @@ const gradients = [
 ];
 
 // Arquivos de demonstração no MESMO formato que o gerador de verdade
-// produz — sem import/export, sem main.tsx com createRoot — pra o Preview
-// renderizar o mock exatamente como renderiza um projeto real.
+// produz — React + TypeScript padrão, com import/export reais — pra o Preview
+// (Sandpack) renderizar o mock exatamente como renderiza um projeto real.
 function makeFiles(projectName: string): FileNode[] {
   return [
     {
@@ -34,7 +34,7 @@ function makeFiles(projectName: string): FileNode[] {
       type: 'file',
       parentId: null,
       language: 'tsx',
-      content: `function App() {\n  return (\n    <div className="min-h-screen bg-slate-950 text-white">\n      <Header title="${projectName}" />\n      <main className="max-w-3xl mx-auto px-6 py-16">\n        <h1 className="text-3xl font-bold">${projectName}</h1>\n        <p className="mt-3 text-white/60">Projeto de demonstração gerado pelo Nexa AI.</p>\n      </main>\n    </div>\n  );\n}`,
+      content: `import Header from './components/Header';\n\nexport default function App() {\n  return (\n    <div className="min-h-screen bg-slate-950 text-white">\n      <Header title="${projectName}" />\n      <main className="max-w-3xl mx-auto px-6 py-16">\n        <h1 className="text-3xl font-bold">${projectName}</h1>\n        <p className="mt-3 text-white/60">Projeto de demonstração gerado pelo Nexa AI.</p>\n      </main>\n    </div>\n  );\n}\n`,
     },
     { id: 'f2', name: 'components', type: 'folder', parentId: null, children: ['f3'] },
     {
@@ -43,7 +43,7 @@ function makeFiles(projectName: string): FileNode[] {
       type: 'file',
       parentId: 'f2',
       language: 'tsx',
-      content: `function Header({ title }) {\n  return (\n    <header className="border-b border-white/10 px-6 py-4 text-sm font-semibold tracking-tight">\n      {title}\n    </header>\n  );\n}`,
+      content: `type HeaderProps = { title: string };\n\nexport default function Header({ title }: HeaderProps) {\n  return (\n    <header className="border-b border-white/10 px-6 py-4 text-sm font-semibold tracking-tight">\n      {title}\n    </header>\n  );\n}\n`,
     },
   ];
 }

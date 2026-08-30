@@ -1,19 +1,23 @@
-import { useMemo, useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 
 import {
   Monitor,
   Tablet,
   Smartphone,
   RefreshCw,
-  ExternalLink,
   Download,
 } from 'lucide-react';
 
 import type { FileNode, PreviewDevice } from '../../types';
 import { cn } from '../../lib/utils';
 import { useStore } from '../../store/useStore';
-import { buildPreviewScript, buildPreviewHtml, contentKey } from '../../lib/previewRuntime';
 import { downloadProjectZip } from '../../lib/projectZip';
+
+// Sandpack traz ~1MB (CodeMirror, cliente do bundler). Só carrega quando um
+// Preview de fato monta — não pesa nas telas de navegação.
+const SandpackRuntime = lazy(() =>
+  import('./SandpackRuntime').then(m => ({ default: m.SandpackRuntime })),
+);
 
 interface Props {
   files: FileNode[];
@@ -23,7 +27,7 @@ interface Props {
 export function Preview({ files, projectName }: Props) {
   const addToast = useStore(s => s.addToast);
   const [device, setDevice] = useState<PreviewDevice>('desktop');
-  const [refreshKey, setRefreshKey] = useState(0);
+  const [refreshToken, setRefreshToken] = useState(0);
   const [downloading, setDownloading] = useState(false);
 
   const sizes: Record<PreviewDevice, { width: string; height: string }> = {
@@ -38,16 +42,16 @@ export function Preview({ files, projectName }: Props) {
     { id: 'mobile', icon: Smartphone, label: 'Mobile' },
   ];
 
-  const previewCode = useMemo(() => buildPreviewScript(files), [files]);
-  const srcDoc = useMemo(() => buildPreviewHtml(previewCode, projectName), [previewCode, projectName]);
-  const iframeKey = `${refreshKey}:${contentKey(previewCode)}`;
-
   const handleDownload = async () => {
     if (downloading) return;
     setDownloading(true);
     try {
       await downloadProjectZip(files, projectName);
-      addToast({ type: 'success', title: 'Projeto exportado', message: 'O .zip foi baixado — abra o index.html.' });
+      addToast({
+        type: 'success',
+        title: 'Projeto exportado',
+        message: 'O .zip é um projeto Vite — rode npm install && npm run dev.',
+      });
     } catch (error) {
       addToast({
         type: 'error',
@@ -91,7 +95,7 @@ export function Preview({ files, projectName }: Props) {
           </div>
 
           <button
-            onClick={() => setRefreshKey((k) => k + 1)}
+            onClick={() => setRefreshToken((k) => k + 1)}
             className="p-2 rounded-lg text-ink/55 hover:text-ink hover:bg-ink/[0.05] transition-all"
             title="Recarregar"
           >
@@ -105,21 +109,6 @@ export function Preview({ files, projectName }: Props) {
             title="Baixar projeto (.zip)"
           >
             <Download className={cn('w-4 h-4', downloading && 'animate-pulse')} />
-          </button>
-
-          <button
-            onClick={() => {
-              const blob = new Blob([previewCode], { type: 'text/plain' });
-              const url = URL.createObjectURL(blob);
-              window.open(url, '_blank');
-              setTimeout(() => {
-                URL.revokeObjectURL(url);
-              }, 1000);
-            }}
-            className="p-2 rounded-lg text-ink/55 hover:text-ink hover:bg-ink/[0.05] transition-all"
-            title="Ver código-fonte"
-          >
-            <ExternalLink className="w-4 h-4" />
           </button>
         </div>
       </div>
@@ -136,13 +125,15 @@ export function Preview({ files, projectName }: Props) {
             maxWidth: '100%',
           }}
         >
-          <iframe
-            key={iframeKey}
-            srcDoc={srcDoc}
-            title="Preview"
-            className="w-full h-full border-0"
-            sandbox="allow-scripts allow-same-origin"
-          />
+          <Suspense
+            fallback={
+              <div className="h-full w-full flex items-center justify-center bg-white text-sm text-slate-400">
+                carregando preview…
+              </div>
+            }
+          >
+            <SandpackRuntime files={files} refreshToken={refreshToken} />
+          </Suspense>
         </div>
       </div>
     </div>

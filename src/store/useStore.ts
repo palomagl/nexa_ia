@@ -68,7 +68,7 @@ export const useStore = create<AppState>((set, get) => ({
       ? buildFileNodes(generatedFiles)
       : buildFileNodes([{
           name: 'App.tsx',
-          content: `function App() {\n  return (\n    <div className="p-8 bg-slate-950 text-white min-h-screen">\n      <h1 className="text-2xl font-bold">${prompt}</h1>\n    </div>\n  );\n}`,
+          content: `export default function App() {\n  return (\n    <div className="p-8 bg-slate-950 text-white min-h-screen">\n      <h1 className="text-2xl font-bold">${prompt}</h1>\n    </div>\n  );\n}\n`,
         }]);
 
     const newProject: Project = {
