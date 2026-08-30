@@ -37,7 +37,13 @@ export function FileExplorer({ projectId, files, activeFileId, onSelectFile, onC
 
   const getIcon = (name: string) => {
     const ext = name.split('.').pop()?.toLowerCase();
-    return <FileCode className={cn('w-3.5 h-3.5', ext === 'tsx' ? 'text-blue-400' : ext === 'ts' ? 'text-blue-300' : ext === 'css' ? 'text-pink-400' : ext === 'json' ? 'text-yellow-400' : ext === 'html' ? 'text-orange-400' : 'text-ink/55')} />;
+    const tint =
+      ext === 'tsx' || ext === 'ts' ? 'text-lavender-ink'
+      : ext === 'css' ? 'text-rose-deep'
+      : ext === 'json' ? 'text-sage-ink'
+      : ext === 'html' ? 'text-rose-ink'
+      : 'text-ink/50';
+    return <FileCode className={cn('w-3.5 h-3.5', tint)} />;
   };
 
   const renderNode = (node: FileNode, depth: number): React.ReactNode => {
@@ -81,7 +87,7 @@ export function FileExplorer({ projectId, files, activeFileId, onSelectFile, onC
   return (
     <div className="h-full flex flex-col">
       <div className="flex items-center justify-between px-3 py-2.5 border-b border-paper-line">
-        <span className="text-xs font-semibold uppercase tracking-wider text-ink/55">Explorer</span>
+        <span className="font-display text-xs font-semibold uppercase tracking-wide text-ink/50">Arquivos</span>
         <div className="flex items-center gap-1">
           <div className="relative">
           <button onClick={() => setShowRootMenu(!showRootMenu)} className="p-1 rounded hover:bg-ink/[0.05] text-ink/55 hover:text-ink">
@@ -93,13 +99,13 @@ export function FileExplorer({ projectId, files, activeFileId, onSelectFile, onC
                 onClick={() => { addFile(projectId, 'new-file.tsx', null, 'file'); setShowRootMenu(false); }}
                 className="w-full text-left px-3 py-1.5 text-xs text-ink/75 hover:bg-ink/[0.05] flex items-center gap-2"
               >
-                <FileIcon className="w-3 h-3" /> New File
+                <FileIcon className="w-3 h-3" /> Novo arquivo
               </button>
               <button
                 onClick={() => { addFile(projectId, 'new-folder', null, 'folder'); setShowRootMenu(false); }}
                 className="w-full text-left px-3 py-1.5 text-xs text-ink/75 hover:bg-ink/[0.05] flex items-center gap-2"
               >
-                <Folder className="w-3 h-3" /> New Folder
+                <Folder className="w-3 h-3" /> Nova pasta
               </button>
             </div>
           )}

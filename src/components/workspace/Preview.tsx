@@ -85,16 +85,15 @@ export function Preview({ files, projectName }: Props) {
         </div>
 
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-ink/[0.03] border border-paper-line text-xs text-ink/55">
+          <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-paper-card border border-paper-line2 text-xs text-ink/55">
             <div className="w-1.5 h-1.5 rounded-full bg-sage-deep" />
-            localhost:5173/
-            {projectName.toLowerCase().replace(/\s+/g, '-')}
+            <span className="truncate max-w-[160px]">nexa.ai/{projectName.toLowerCase().replace(/\s+/g, '-')}</span>
           </div>
 
           <button
             onClick={() => setRefreshKey((k) => k + 1)}
             className="p-2 rounded-lg text-ink/55 hover:text-ink hover:bg-ink/[0.05] transition-all"
-            title="Refresh"
+            title="Recarregar"
           >
             <RefreshCw className="w-4 h-4" />
           </button>
@@ -118,7 +117,7 @@ export function Preview({ files, projectName }: Props) {
               }, 1000);
             }}
             className="p-2 rounded-lg text-ink/55 hover:text-ink hover:bg-ink/[0.05] transition-all"
-            title="Open source"
+            title="Ver código-fonte"
           >
             <ExternalLink className="w-4 h-4" />
           </button>
@@ -128,7 +127,7 @@ export function Preview({ files, projectName }: Props) {
       <div className="flex-1 bg-paper overflow-auto flex items-start justify-center p-4">
         <div
           className={cn(
-            'bg-paper-card rounded-lg shadow-paper-lg overflow-hidden transition-all duration-300',
+            'bg-white rounded-lg shadow-paper-lg overflow-hidden transition-all duration-300',
             device !== 'desktop' && 'border border-paper-line2'
           )}
           style={{

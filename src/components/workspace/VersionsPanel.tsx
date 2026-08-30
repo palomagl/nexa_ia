@@ -17,11 +17,11 @@ export function VersionsPanel({ projectId, versions }: Props) {
       <div className="flex items-center justify-between px-4 py-3 border-b border-paper-line">
         <div className="flex items-center gap-2">
           <History className="w-4 h-4 text-lavender-ink" />
-          <span className="text-sm font-semibold text-ink">History</span>
+          <span className="font-display text-sm font-semibold text-ink">Histórico</span>
         </div>
         <button
-          onClick={() => { createCheckpoint(projectId, 'Manual checkpoint'); addToast({ type: 'success', title: 'Checkpoint created' }); }}
-          className="text-xs px-2 py-1 rounded-lg bg-lavender-soft/70 text-lavender-ink hover:bg-lavender-soft transition-all"
+          onClick={() => { createCheckpoint(projectId, 'Checkpoint manual'); addToast({ type: 'success', title: 'Checkpoint criado' }); }}
+          className="text-xs px-2 py-1 rounded-lg bg-lavender-soft text-lavender-ink hover:bg-lavender hover:text-lavender-ink transition-all"
         >
           + Checkpoint
         </button>
@@ -46,7 +46,7 @@ export function VersionsPanel({ projectId, versions }: Props) {
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium text-ink">{v.label}</span>
-                      {i === 0 && <span className="text-[10px] px-1.5 py-0.5 rounded bg-lavender-soft text-lavender-ink">Current</span>}
+                      {i === 0 && <span className="text-[10px] px-1.5 py-0.5 rounded bg-lavender text-lavender-ink">atual</span>}
                     </div>
                     <p className="text-xs text-ink/55 truncate mt-0.5">{v.description}</p>
                     <p className="text-[10px] text-ink/35 mt-0.5">{formatDate(v.timestamp)}</p>
@@ -69,12 +69,12 @@ export function VersionsPanel({ projectId, versions }: Props) {
             ))}
           </div>
         </div>
-        <div className="mt-4 px-2 py-2.5 rounded-lg bg-ink/[0.03] border border-paper-line">
+        <div className="mt-4 px-2 py-2.5 rounded-lg bg-paper-sunken border border-paper-line2">
           <div className="flex items-center gap-2 text-xs text-ink/55">
             <GitBranch className="w-3.5 h-3.5" />
             <span>main</span>
             <span className="text-ink/35">·</span>
-            <span>{versions.length} versions</span>
+            <span>{versions.length} {versions.length === 1 ? 'versão' : 'versões'}</span>
           </div>
         </div>
       </div>

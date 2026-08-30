@@ -2,10 +2,11 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Code2, Eye, MessageSquare, History,
-  PanelLeft, Sparkles, ChevronLeft, ChevronRight,
+  PanelLeft, ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { cn } from '../lib/utils';
+import { Star } from '../components/ui/Doodles';
 import { FileExplorer } from '../components/workspace/FileExplorer';
 import { Preview } from '../components/workspace/Preview';
 import { AIChat } from '../components/workspace/AIChat';
@@ -142,28 +143,28 @@ export function ProjectWorkspace() {
             className="flex items-center gap-2 flex-shrink-0 rounded-lg hover:bg-ink/[0.05] px-1.5 py-1 transition-colors"
             title="Voltar"
           >
-            <div className="w-7 h-7 rounded-lg gradient-nexa flex items-center justify-center">
-              <Sparkles className="w-3.5 h-3.5 text-ink" />
+            <div className="w-7 h-7 rounded-lg bg-lavender flex items-center justify-center">
+              <Star size={15} fill className="text-lavender-ink" />
             </div>
-            <span className="hidden sm:flex items-baseline gap-1">
-              <span className="text-sm font-bold tracking-tight text-ink">NEXA</span>
-              <span className="text-sm font-bold tracking-tight gradient-text">AI</span>
+            <span className="hidden sm:flex items-baseline gap-1 font-display font-semibold text-sm tracking-tight">
+              <span className="text-ink">NEXA</span>
+              <span className="text-lavender-ink">AI</span>
             </span>
           </button>
 
-          <div className="h-4 w-px bg-ink/10 flex-shrink-0" />
+          <div className="h-4 w-px bg-paper-line2 flex-shrink-0" />
 
-          <p className="text-sm font-medium text-ink truncate max-w-[220px] sm:max-w-xs">
+          <p className="font-display text-sm font-medium text-ink truncate max-w-[220px] sm:max-w-xs">
             {project.name}
           </p>
         </div>
 
-        <div className="flex items-center p-0.5 rounded-lg bg-ink/[0.05]">
+        <div className="flex items-center p-0.5 rounded-xl bg-paper-card border border-paper-line2">
           <button
             onClick={() => setView('preview')}
             className={cn(
-              'px-3 h-8 rounded-md text-xs font-medium flex items-center gap-1.5 transition-colors',
-              view === 'preview' ? 'bg-ink/10 text-ink' : 'text-ink/55 hover:text-ink'
+              'px-3 h-8 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors',
+              view === 'preview' ? 'bg-lavender-soft text-lavender-ink' : 'text-ink/55 hover:text-ink'
             )}
           >
             <Eye className="w-3.5 h-3.5" /> Preview
@@ -171,11 +172,11 @@ export function ProjectWorkspace() {
           <button
             onClick={() => setView('code')}
             className={cn(
-              'px-3 h-8 rounded-md text-xs font-medium flex items-center gap-1.5 transition-colors',
-              view === 'code' ? 'bg-ink/10 text-ink' : 'text-ink/55 hover:text-ink'
+              'px-3 h-8 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors',
+              view === 'code' ? 'bg-lavender-soft text-lavender-ink' : 'text-ink/55 hover:text-ink'
             )}
           >
-            <Code2 className="w-3.5 h-3.5" /> Code
+            <Code2 className="w-3.5 h-3.5" /> Código
           </button>
         </div>
 
@@ -267,8 +268,9 @@ export function ProjectWorkspace() {
                 filename={activeFile.name}
               />
             ) : (
-              <div className="h-full flex items-center justify-center text-sm text-ink/50">
-                Selecione um arquivo no Explorer
+              <div className="h-full flex flex-col items-center justify-center gap-2">
+                <Star size={36} className="text-paper-line2" rotate={-8} />
+                <p className="hand text-lg text-ink/45">escolha um arquivo na barra lateral</p>
               </div>
             )}
           </div>
