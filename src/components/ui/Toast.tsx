@@ -11,10 +11,11 @@ export function ToastContainer() {
         <div
           key={t.id}
           className={cn(
-            'glass-strong rounded-xl p-4 shadow-paper-lg animate-slide-up flex items-start gap-3',
-            t.type === 'success' && 'border-sage-deep/40',
-            t.type === 'error' && 'border-rose-deep/40',
-            t.type === 'loading' && 'border-lavender-deep/40'
+            'bg-paper-card border border-paper-line2 border-l-4 rounded-xl p-4 shadow-paper-lg animate-slide-up flex items-start gap-3',
+            t.type === 'success' && 'border-l-sage-deep',
+            t.type === 'error' && 'border-l-rose-deep',
+            t.type === 'info' && 'border-l-lavender-deep',
+            t.type === 'loading' && 'border-l-lavender-deep'
           )}
         >
           {t.type === 'success' && <CheckCircle2 className="w-5 h-5 text-sage-ink flex-shrink-0 mt-0.5" />}
@@ -22,8 +23,8 @@ export function ToastContainer() {
           {t.type === 'info' && <Info className="w-5 h-5 text-lavender-ink flex-shrink-0 mt-0.5" />}
           {t.type === 'loading' && <Loader2 className="w-5 h-5 text-lavender-ink flex-shrink-0 mt-0.5 animate-spin" />}
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-ink">{t.title}</p>
-            {t.message && <p className="text-xs text-ink/60 mt-0.5">{t.message}</p>}
+            <p className="font-display text-sm font-medium text-ink">{t.title}</p>
+            {t.message && <p className="text-xs text-ink/60 mt-0.5 break-words">{t.message}</p>}
           </div>
           <button onClick={() => removeToast(t.id)} className="text-ink/45 hover:text-ink">
             <X className="w-4 h-4" />
