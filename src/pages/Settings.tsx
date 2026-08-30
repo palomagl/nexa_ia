@@ -13,11 +13,11 @@ export function Settings() {
   const [emailDraft, setEmailDraft] = useState(user.email);
   const [workspaceNameDraft, setWorkspaceNameDraft] = useState(workspace.name);
 
-  const tabs: { id: SettingsTab; label: string; icon: typeof User }[] = [
+  const tabs: { id: SettingsTab; label: string; icon: typeof User; soon?: boolean }[] = [
     { id: 'account', label: 'Conta', icon: User },
     { id: 'workspace', label: 'Workspace', icon: Building2 },
     { id: 'ai', label: 'IA', icon: Sparkles },
-    { id: 'github', label: 'GitHub', icon: Github },
+    { id: 'github', label: 'GitHub', icon: Github, soon: true },
   ];
 
   return (
@@ -41,7 +41,12 @@ export function Settings() {
                 )}
               >
                 <t.icon className="w-4 h-4 flex-shrink-0" />
-                {t.label}
+                <span className="flex-1 text-left">{t.label}</span>
+                {t.soon && (
+                  <span className="text-[9px] uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-paper-sunken text-ink/45 font-sans">
+                    em breve
+                  </span>
+                )}
               </button>
             ))}
           </div>
@@ -142,26 +147,32 @@ export function Settings() {
           )}
 
           {tab === 'github' && (
-            <div className="space-y-6">
+            <div className="space-y-5">
               <div>
-                <h2 className="font-display text-lg font-semibold text-ink mb-1">Integração com GitHub</h2>
-                <p className="text-sm text-ink/55">Conecte sua conta do GitHub</p>
-              </div>
-              <div className="flex items-center gap-3 p-4 rounded-xl bg-paper-sunken border border-paper-line2">
-                <div className="w-10 h-10 rounded-lg bg-paper-card flex items-center justify-center">
-                  <Github className="w-5 h-5 text-ink" />
+                <div className="flex items-center gap-2 mb-1">
+                  <h2 className="font-display text-lg font-semibold text-ink">Integração com GitHub</h2>
+                  <span className="text-[10px] uppercase tracking-wide px-2 py-0.5 rounded-full bg-lavender-soft text-lavender-ink">em breve</span>
                 </div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-ink">Nenhuma conta conectada</p>
-                  <p className="text-xs text-ink/55">Conecte pra permitir push direto de um projeto pro GitHub</p>
-                </div>
-                <button
-                  onClick={() => addToast({ type: 'info', title: 'Em breve', message: 'A integração com GitHub ainda está em desenvolvimento.' })}
-                  className="btn-outline text-xs px-3 py-1.5"
-                >
-                  Conectar
-                </button>
+                <p className="text-sm text-ink/55">Planejado, ainda não disponível</p>
               </div>
+              <div className="p-4 rounded-xl bg-paper-sunken border border-paper-line2 flex items-start gap-3">
+                <div className="w-10 h-10 rounded-lg bg-paper-card flex items-center justify-center flex-shrink-0">
+                  <Github className="w-5 h-5 text-ink/60" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-ink">Enviar um projeto direto pro seu repositório</p>
+                  <p className="text-xs text-ink/55 mt-0.5">
+                    Ainda não dá pra conectar uma conta — essa integração está em desenvolvimento.
+                    Por ora, use o botão de baixar <span className="font-medium">.zip</span> no Preview.
+                  </p>
+                </div>
+              </div>
+              <button
+                disabled
+                className="btn-outline text-xs px-3 py-1.5 opacity-40 cursor-not-allowed"
+              >
+                Conectar conta
+              </button>
             </div>
           )}
         </div>
