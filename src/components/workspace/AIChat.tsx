@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import {
-  Send, Paperclip, User as UserIcon, FileCode, Trash, ChevronRight, Mic, X, Image as ImageIcon,
+  Send, Paperclip, User as UserIcon, FileCode, Trash, ChevronLeft, Mic, X, Image as ImageIcon,
 } from 'lucide-react';
 import type { ChatMessage } from '../../types';
 import { useStore } from '../../store/useStore';
@@ -291,7 +291,7 @@ export function AIChat({ projectId, messages, onCollapse }: Props) {
             className="p-1.5 rounded-lg text-ink/55 hover:text-ink hover:bg-ink/[0.05]"
             title="Esconder painel"
           >
-            <ChevronRight className="w-4 h-4" />
+            <ChevronLeft className="w-4 h-4" />
           </button>
         )}
       </div>

@@ -1,8 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-  Code2, Eye, MessageSquare, History,
-  PanelLeft, ChevronLeft, ChevronRight,
+  Code2, Eye, MessageSquare, History, PanelLeft, ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { cn } from '../lib/utils';
@@ -14,31 +13,60 @@ import { CodeEditor } from '../components/workspace/CodeEditor';
 import { VersionsPanel } from '../components/workspace/VersionsPanel';
 
 type ViewMode = 'preview' | 'code';
-type RightView = 'chat' | 'history';
+
+function PanelToggle({ active, onClick, label, children }: {
+  active: boolean; onClick: () => void; label: string; children: ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      title={label}
+      aria-pressed={active}
+      className={cn(
+        'p-2 rounded-lg transition-colors',
+        active ? 'bg-lavender-soft text-lavender-ink' : 'text-ink/55 hover:text-ink hover:bg-ink/[0.05]'
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
+function EdgeReopen({ side, onClick, title }: { side: 'left' | 'right'; onClick: () => void; title: string }) {
+  return (
+    <button
+      onClick={onClick}
+      title={title}
+      className={cn(
+        'flex-shrink-0 w-7 bg-paper-card text-ink/40 hover:text-lavender-ink hover:bg-lavender-soft/40 flex items-center justify-center transition-colors',
+        side === 'left' ? 'border-r border-paper-line' : 'border-l border-paper-line'
+      )}
+    >
+      {side === 'left' ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+    </button>
+  );
+}
 
 export function ProjectWorkspace() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { getProject } = useStore();
-
   const project = id ? getProject(id) : undefined;
 
   const [view, setView] = useState<ViewMode>('preview');
-  const [rightView, setRightView] = useState<RightView>('chat');
-  const [showExplorer, setShowExplorer] = useState(
-    () => typeof window !== 'undefined' && window.innerWidth >= 1440
-  );
-  const [showRight, setShowRight] = useState(
-    () => typeof window !== 'undefined' && window.innerWidth >= 1100
-  );
   const [isCompact, setIsCompact] = useState(
     () => typeof window !== 'undefined' && window.innerWidth < 1024
   );
+  // Chat = coluna esquerda (aberta por padrão em telas largas).
+  // Histórico = coluna direita (fechada). Arquivos = gaveta sobreposta (fechada).
+  const [showChat, setShowChat] = useState(
+    () => typeof window !== 'undefined' && window.innerWidth >= 1024
+  );
+  const [showHistory, setShowHistory] = useState(false);
+  const [showExplorer, setShowExplorer] = useState(false);
   const [activeFileId, setActiveFileId] = useState<string | null>(null);
 
-  // Seleciona um arquivo real quando o projeto carrega (ou troca). Antes o
-  // padrão era o id 'f2' de um projeto mock — que não existe nos projetos
-  // gerados, deixando a aba Code vazia.
+  // Seleciona um arquivo real quando o projeto carrega (ou troca).
   useEffect(() => {
     if (!project) return;
     setActiveFileId(prev => {
@@ -56,8 +84,9 @@ export function ProjectWorkspace() {
       const compact = mq.matches;
       setIsCompact(compact);
       if (compact) {
+        setShowChat(false);
+        setShowHistory(false);
         setShowExplorer(false);
-        setShowRight(false);
       }
     };
     mq.addEventListener('change', sync);
@@ -66,10 +95,11 @@ export function ProjectWorkspace() {
 
   if (!project) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <div className="text-center">
-          <p className="text-ink/55 mb-4">Project not found</p>
-          <button onClick={() => navigate('/projects')} className="btn-primary">Back to Projects</button>
+      <div className="h-screen flex items-center justify-center bg-paper">
+        <div className="flex flex-col items-center gap-3 text-center">
+          <Star size={40} className="text-paper-line2" rotate={-8} />
+          <p className="hand text-xl text-ink/50">projeto não encontrado</p>
+          <button onClick={() => navigate('/projects')} className="btn-primary text-sm">Voltar aos projetos</button>
         </div>
       </div>
     );
@@ -77,66 +107,16 @@ export function ProjectWorkspace() {
 
   const activeFile = project.files.find(f => f.id === activeFileId);
 
-  const openChat = () => {
-    if (showRight && rightView === 'chat') {
-      setShowRight(false);
-      return;
-    }
-    setRightView('chat');
-    setShowRight(true);
+  const selectFile = (fid: string) => {
+    setActiveFileId(fid);
+    setView('code');
+    setShowExplorer(false);
   };
-
-  const openHistory = () => {
-    setRightView('history');
-    setShowRight(true);
-  };
-
-  const explorerPanel = (
-    <div className="h-full min-h-0 flex flex-col">
-      <FileExplorer
-        projectId={project.id}
-        files={project.files}
-        activeFileId={activeFileId}
-        onSelectFile={(fid) => {
-          setActiveFileId(fid);
-          setView('code');
-          if (isCompact) setShowExplorer(false);
-        }}
-        onCollapse={() => setShowExplorer(false)}
-      />
-    </div>
-  );
-
-  const rightPanel = (
-    <div className="h-full min-h-0 flex flex-col">
-      {rightView === 'chat' ? (
-        <AIChat
-          projectId={project.id}
-          messages={project.chat}
-          onCollapse={() => setShowRight(false)}
-        />
-      ) : (
-        <div className="h-full min-h-0 flex flex-col">
-          <div className="h-11 flex-shrink-0 flex items-center justify-end px-2 border-b border-paper-line">
-            <button
-              onClick={() => setShowRight(false)}
-              className="p-1.5 rounded-md text-ink/55 hover:text-ink hover:bg-ink/[0.05]"
-              title="Esconder painel"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          </div>
-          <div className="flex-1 min-h-0">
-            <VersionsPanel projectId={project.id} versions={project.versions} />
-          </div>
-        </div>
-      )}
-    </div>
-  );
 
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-paper">
-      <header className="h-14 flex-shrink-0 flex items-center justify-between gap-3 px-3 border-b border-paper-line bg-paper">
+      {/* Cabeçalho */}
+      <header className="h-14 flex-shrink-0 flex items-center justify-between gap-3 px-3 border-b border-paper-line bg-paper-card">
         <div className="flex items-center gap-3 min-w-0">
           <button
             onClick={() => navigate('/')}
@@ -154,12 +134,13 @@ export function ProjectWorkspace() {
 
           <div className="h-4 w-px bg-paper-line2 flex-shrink-0" />
 
-          <p className="font-display text-sm font-medium text-ink truncate max-w-[220px] sm:max-w-xs">
+          <p className="font-display text-sm font-medium text-ink truncate max-w-[140px] sm:max-w-xs">
             {project.name}
           </p>
         </div>
 
-        <div className="flex items-center p-0.5 rounded-xl bg-paper-card border border-paper-line2">
+        {/* Preview / Código */}
+        <div className="flex items-center p-0.5 rounded-xl bg-paper border border-paper-line2">
           <button
             onClick={() => setView('preview')}
             className={cn(
@@ -180,123 +161,114 @@ export function ProjectWorkspace() {
           </button>
         </div>
 
+        {/* Painéis */}
         <div className="flex items-center gap-1">
-          <button
-            onClick={() => setShowExplorer(v => !v)}
-            className={cn(
-              'p-2 rounded-md transition-colors',
-              showExplorer ? 'text-ink bg-ink/10' : 'text-ink/55 hover:text-ink hover:bg-ink/[0.05]'
-            )}
-            title={showExplorer ? 'Esconder Explorer' : 'Abrir Explorer'}
-          >
+          <PanelToggle active={showExplorer} onClick={() => setShowExplorer(v => !v)} label="Arquivos">
             <PanelLeft className="w-4 h-4" />
-          </button>
-          <button
-            onClick={openChat}
-            className={cn(
-              'p-2 rounded-md transition-colors',
-              showRight && rightView === 'chat' ? 'text-ink bg-ink/10' : 'text-ink/55 hover:text-ink hover:bg-ink/[0.05]'
-            )}
-            title={showRight && rightView === 'chat' ? 'Esconder AI Assistant' : 'Abrir AI Assistant'}
-          >
+          </PanelToggle>
+          <PanelToggle active={showChat} onClick={() => setShowChat(v => !v)} label="Chat da IA">
             <MessageSquare className="w-4 h-4" />
-          </button>
-
-          <button
-            onClick={() => {
-              if (rightView === 'history' && showRight) setShowRight(false);
-              else openHistory();
-            }}
-            className={cn(
-              'p-2 rounded-md transition-colors',
-              showRight && rightView === 'history' ? 'text-ink bg-ink/10' : 'text-ink/55 hover:text-ink hover:bg-ink/[0.05]'
-            )}
-            title={showRight && rightView === 'history' ? 'Fechar histórico' : 'Histórico'}
-          >
+          </PanelToggle>
+          <PanelToggle active={showHistory} onClick={() => setShowHistory(v => !v)} label="Histórico">
             <History className="w-4 h-4" />
-          </button>
+          </PanelToggle>
         </div>
       </header>
 
+      {/* Corpo */}
       <div className="flex-1 min-h-0 flex overflow-hidden relative">
-        {isCompact && (showExplorer || showRight) && (
-          <button
-            type="button"
-            aria-label="Fechar painel"
-            className="absolute inset-0 z-20 bg-ink/25"
-            onClick={() => {
-              setShowExplorer(false);
-              setShowRight(false);
-            }}
-          />
-        )}
-
-        {showExplorer && (
+        {/* Chat — coluna esquerda, estreita */}
+        {showChat && (
           <aside
             className={cn(
               'flex-shrink-0 border-r border-paper-line bg-paper min-h-0',
               isCompact
-                ? 'absolute inset-y-0 left-0 z-30 w-[240px] shadow-paper-lg'
-                : 'w-[240px]'
+                ? 'absolute inset-y-0 left-0 z-40 w-[86vw] max-w-[340px] shadow-paper-lg'
+                : 'w-[300px] lg:w-[330px]'
             )}
           >
-            {explorerPanel}
+            <AIChat projectId={project.id} messages={project.chat} onCollapse={() => setShowChat(false)} />
           </aside>
         )}
-
-        {!showExplorer && !isCompact && (
-          <button
-            onClick={() => setShowExplorer(true)}
-            className="flex-shrink-0 w-8 border-r border-paper-line text-ink/45 hover:text-ink hover:bg-ink/[0.04] flex items-center justify-center"
-            title="Abrir Explorer"
-          >
-            <ChevronRight className="w-4 h-4" />
-          </button>
+        {!showChat && !isCompact && (
+          <EdgeReopen side="left" onClick={() => setShowChat(true)} title="Abrir chat da IA" />
         )}
 
+        {/* Preview / Código — elemento dominante */}
         <section className="flex-1 min-w-0 min-h-0 flex flex-col overflow-hidden">
-          <div className="flex-1 min-h-0 overflow-hidden">
-            {view === 'preview' ? (
-              <Preview
-                files={project.files}
-                projectName={project.name}
-              />
-            ) : activeFile ? (
-              <CodeEditor
-                content={activeFile.content || ''}
-                language={activeFile.language}
-                filename={activeFile.name}
-              />
-            ) : (
-              <div className="h-full flex flex-col items-center justify-center gap-2">
-                <Star size={36} className="text-paper-line2" rotate={-8} />
-                <p className="hand text-lg text-ink/45">escolha um arquivo na barra lateral</p>
-              </div>
-            )}
-          </div>
+          {view === 'preview' ? (
+            <Preview files={project.files} projectName={project.name} />
+          ) : activeFile ? (
+            <CodeEditor
+              content={activeFile.content || ''}
+              language={activeFile.language}
+              filename={activeFile.name}
+            />
+          ) : (
+            <div className="h-full flex flex-col items-center justify-center gap-2">
+              <Star size={36} className="text-paper-line2" rotate={-8} />
+              <p className="hand text-lg text-ink/45">abra “Arquivos” e escolha um arquivo</p>
+            </div>
+          )}
         </section>
 
-        {!showRight && !isCompact && (
-          <button
-            onClick={openChat}
-            className="flex-shrink-0 w-8 border-l border-paper-line text-ink/45 hover:text-ink hover:bg-ink/[0.04] flex items-center justify-center"
-            title="Abrir AI Assistant"
-          >
-            <ChevronLeft className="w-4 h-4" />
-          </button>
+        {/* Histórico — coluna direita */}
+        {!showHistory && !isCompact && (
+          <EdgeReopen side="right" onClick={() => setShowHistory(true)} title="Abrir histórico" />
         )}
-
-        {showRight && (
+        {showHistory && (
           <aside
             className={cn(
-              'flex-shrink-0 border-l border-paper-line bg-paper min-h-0',
+              'flex-shrink-0 border-l border-paper-line bg-paper min-h-0 flex flex-col',
               isCompact
-                ? 'absolute inset-y-0 right-0 z-30 w-[340px] max-w-[90vw] shadow-paper-lg'
-                : 'w-[340px]'
+                ? 'absolute inset-y-0 right-0 z-40 w-[86vw] max-w-[340px] shadow-paper-lg'
+                : 'w-[300px]'
             )}
           >
-            {rightPanel}
+            <div className="h-11 flex-shrink-0 flex items-center justify-end px-2 border-b border-paper-line">
+              <button
+                onClick={() => setShowHistory(false)}
+                className="p-1.5 rounded-md text-ink/55 hover:text-ink hover:bg-ink/[0.05]"
+                title="Esconder histórico"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="flex-1 min-h-0">
+              <VersionsPanel projectId={project.id} versions={project.versions} />
+            </div>
           </aside>
+        )}
+
+        {/* Arquivos — gaveta sobreposta pela esquerda */}
+        {showExplorer && (
+          <>
+            <button
+              type="button"
+              aria-label="Fechar Arquivos"
+              className="absolute inset-0 z-40 bg-ink/25"
+              onClick={() => setShowExplorer(false)}
+            />
+            <aside className="absolute inset-y-0 left-0 z-50 w-[280px] bg-paper-card border-r border-paper-line2 shadow-paper-lg animate-slide-right flex flex-col">
+              <FileExplorer
+                projectId={project.id}
+                files={project.files}
+                activeFileId={activeFileId}
+                onSelectFile={selectFile}
+                onCollapse={() => setShowExplorer(false)}
+              />
+            </aside>
+          </>
+        )}
+
+        {/* Scrim das gavetas de chat/histórico no modo compacto */}
+        {isCompact && (showChat || showHistory) && (
+          <button
+            type="button"
+            aria-label="Fechar painel"
+            className="absolute inset-0 z-30 bg-ink/25"
+            onClick={() => { setShowChat(false); setShowHistory(false); }}
+          />
         )}
       </div>
     </div>
