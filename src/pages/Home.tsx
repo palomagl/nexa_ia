@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Mic, Paperclip, Sparkles, ArrowRight, Globe, Layout, BarChart3, Layers,
+  Mic, Paperclip, Sparkles, ArrowRight,
   Star as StarIcon, Trash2, Clock, Share2, X, ImageIcon, Plus,
 } from 'lucide-react';
 import { useStore } from '../store/useStore';
@@ -202,43 +202,6 @@ export function Home() {
     }
   };
 
-  // Exemplos de prompt de verdade — específicos, com nome fictício, seções e
-  // tom. Ao clicar, preenchem o campo pra editar antes de gerar.
-  const quickStarts: { icon: typeof Globe; label: string; desc: string; example: string; tint: string }[] = [
-    {
-      icon: Globe,
-      label: 'Site',
-      desc: 'Página institucional',
-      example:
-        'Site institucional para a cafeteria artesanal Grão Nobre. Seções: hero com foto e chamada de valor, sobre a torra própria, cardápio com 6 itens e preços, 3 depoimentos de clientes, localização com horários, e rodapé com redes sociais. Tom acolhedor e sofisticado, paleta de tons quentes (marrom, creme, terracota).',
-      tint: 'bg-lavender text-lavender-ink',
-    },
-    {
-      icon: Layout,
-      label: 'App',
-      desc: 'Aplicação interativa',
-      example:
-        'App web de receitas caseiras. Busca por ingrediente, filtro por categoria (doces, salgados, bebidas), página de detalhe com passo a passo e lista de compras, e opção de favoritar receitas. Visual limpo e apetitoso, com fotos.',
-      tint: 'bg-sage text-sage-ink',
-    },
-    {
-      icon: BarChart3,
-      label: 'Dashboard',
-      desc: 'Painel com métricas',
-      example:
-        'Dashboard administrativo de uma loja online. Cards de KPI (faturamento do mês, pedidos, ticket médio, taxa de conversão), gráfico de vendas dos últimos 30 dias, tabela de pedidos recentes com status, e ranking dos produtos mais vendidos. Estilo corporativo e claro.',
-      tint: 'bg-rose text-rose-ink',
-    },
-    {
-      icon: Layers,
-      label: 'Protótipo',
-      desc: 'Fluxo clicável',
-      example:
-        'Protótipo clicável do onboarding de um app de finanças pessoais: tela de boas-vindas, conectar conta, definir meta de economia, escolher categorias de gastos, e um resumo final. Navegação entre as telas com botões avançar e voltar.',
-      tint: 'bg-lavender-deep text-white',
-    },
-  ];
-
   const starTints = ['text-lavender-ink', 'text-sage-ink', 'text-rose-deep'];
   const recentProjects = projects.slice(0, 8);
 
@@ -350,35 +313,6 @@ export function Home() {
         <p className="hand text-base text-ink/40 mt-2">
           aperte ⌘ + Enter pra gerar
         </p>
-      </div>
-
-      {/* Atalhos — inserem um exemplo de prompt específico pra editar */}
-      <div className="mb-12">
-        <p className="hand text-lg text-ink/50 mb-3">ou comece por um exemplo</p>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
-        {quickStarts.map((qs, i) => (
-          <button
-            key={qs.label}
-            onClick={() => {
-              setPrompt(qs.example);
-              const el = textareaRef.current;
-              if (el) {
-                el.focus();
-                el.setSelectionRange(el.value.length, el.value.length);
-              }
-            }}
-            title={qs.example}
-            className="paper-card card-hover p-4 text-left animate-slide-up"
-            style={{ animationDelay: `${i * 50}ms` }}
-          >
-            <div className={cn('w-10 h-10 rounded-xl flex items-center justify-center mb-3', qs.tint)}>
-              <qs.icon className="w-5 h-5" />
-            </div>
-            <h3 className="font-display font-medium text-ink">{qs.label}</h3>
-            <p className="text-xs text-ink/55 mt-0.5">{qs.desc}</p>
-          </button>
-        ))}
-        </div>
       </div>
 
       {/* Projetos recentes */}
