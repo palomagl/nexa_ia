@@ -21,7 +21,7 @@
 
 @layer base {
   * {
-    @apply border-paper-line;
+    border-color: theme('colors.paper.line');
   }
   html { scroll-behavior: smooth; }
   body {

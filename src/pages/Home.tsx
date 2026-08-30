@@ -2,18 +2,19 @@ import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Mic, Paperclip, Sparkles, ArrowRight, Globe, Layout, BarChart3, Layers,
-  Star, Trash2, Clock, Share2, X, ImageIcon,
+  Star as StarIcon, Trash2, Clock, Share2, X, ImageIcon, Plus,
 } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { cn, formatDate, formatServerError, isNetworkError, consumeNDJSONStream, readImageFile, type AttachedImage } from '../lib/utils';
 import { useVoiceInput } from '../lib/useVoiceInput';
 import { Dropdown } from '../components/ui/Dropdown';
 import { Modal } from '../components/ui/Modal';
-import type { ProjectType } from '../types';
+import { Star } from '../components/ui/Doodles';
 
 export function Home() {
   const navigate = useNavigate();
-  const { projects, createProject, deleteProject, toggleStar, addToast, removeToast } = useStore();
+  const { projects, createProject, deleteProject, toggleStar, addToast, removeToast, user } = useStore();
+  const firstName = user.name.split(' ')[0];
   const [prompt, setPrompt] = useState('');
   const [generating, setGenerating] = useState(false);
   const [phaseLabel, setPhaseLabel] = useState('');
@@ -201,198 +202,180 @@ export function Home() {
     }
   };
 
-  const quickStarts: { icon: typeof Globe; label: string; desc: string; type: ProjectType; gradient: string }[] = [
-    { icon: Globe, label: 'Website', desc: 'Create a beautiful website', type: 'website', gradient: 'from-nexa-600 to-violet-500' },
-    { icon: Layout, label: 'App', desc: 'Build a web application', type: 'app', gradient: 'from-violet-600 to-nexa-400' },
-    { icon: BarChart3, label: 'Dashboard', desc: 'Create admin dashboards', type: 'dashboard', gradient: 'from-nexa-500 to-violet-600' },
-    { icon: Layers, label: 'Prototype', desc: 'Quick interactive prototype', type: 'prototype', gradient: 'from-violet-400 to-nexa-500' },
+  const quickStarts: { icon: typeof Globe; label: string; desc: string; prompt: string; tint: string }[] = [
+    { icon: Globe, label: 'Site', desc: 'Uma página institucional bonita', prompt: 'Crie um site institucional para ', tint: 'bg-lavender text-lavender-ink' },
+    { icon: Layout, label: 'App', desc: 'Uma aplicação web interativa', prompt: 'Crie um app web para ', tint: 'bg-sage text-sage-ink' },
+    { icon: BarChart3, label: 'Dashboard', desc: 'Um painel com números e gráficos', prompt: 'Crie um dashboard para ', tint: 'bg-rose text-rose-ink' },
+    { icon: Layers, label: 'Protótipo', desc: 'Um protótipo rápido e clicável', prompt: 'Crie um protótipo de ', tint: 'bg-lavender-deep text-white' },
   ];
 
+  const starTints = ['text-lavender-ink', 'text-sage-ink', 'text-rose-deep'];
   const recentProjects = projects.slice(0, 8);
 
   return (
-    <div className="max-w-6xl mx-auto px-4 lg:px-8 py-8 lg:py-12">
-      {/* Hero */}
-      <div className="text-center mb-10 animate-fade-in">
-        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-lavender-soft/70 border border-lavender-deep/30 mb-6">
-          <Sparkles className="w-3.5 h-3.5 text-lavender-ink" />
-          <span className="text-xs font-medium text-lavender-ink">Powered by NEXA AI</span>
-        </div>
-        <h1 className="text-3xl lg:text-5xl font-extrabold tracking-tight text-ink mb-3 text-balance">
-          What will you <span className="gradient-text">build</span> today?
+    <div className="max-w-4xl mx-auto px-4 lg:px-8 py-8 lg:py-12">
+      {/* Saudação */}
+      <div className="relative mb-8 animate-fade-in">
+        <Star size={18} className="absolute -top-2 right-6 text-lavender/70" rotate={-12} />
+        <Star size={11} fill className="absolute top-6 right-20 text-sage-deep/60" rotate={8} />
+        <h1 className="font-display text-3xl lg:text-4xl font-semibold text-ink">
+          Olá, <span className="doodle-underline-rose">{firstName}</span>!
         </h1>
-        <p className="text-ink/60 text-base lg:text-lg">Create websites and apps by chatting with AI.</p>
+        <p className="hand text-2xl text-ink/55 mt-1">O que você vai criar hoje?</p>
       </div>
 
-      {/* Prompt Box */}
-      <div className="relative max-w-3xl mx-auto mb-8 animate-slide-up">
-        <div className="absolute inset-0 gradient-nexa opacity-20 blur-2xl rounded-3xl" />
-        <div className="relative glass-strong rounded-2xl p-2 shadow-2xl">
-          {attachedImage && (
-            <div className="flex items-center gap-2 mx-2 mt-2 px-2.5 py-1.5 rounded-lg bg-ink/[0.05] border border-paper-line2 w-fit max-w-full">
-              <ImageIcon className="w-3.5 h-3.5 text-lavender-ink flex-shrink-0" />
-              <span className="text-xs text-ink/75 truncate">{attachedImage.name}</span>
-              <button
-                onClick={() => setAttachedImage(null)}
-                className="p-0.5 rounded text-ink/55 hover:text-ink hover:bg-ink/10 flex-shrink-0"
-                title="Remover anexo"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          )}
-          <textarea
-            ref={textareaRef}
-            value={prompt}
-            onChange={e => setPrompt(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Describe what you want to build..."
-            rows={4}
-            className="w-full bg-transparent px-4 py-3 text-ink placeholder:text-ink/45 focus:outline-none resize-none text-[15px]"
-          />
-          <div className="flex items-center justify-between px-2 pb-1">
-            <div className="flex items-center gap-1">
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                onChange={handleFileSelected}
-                className="hidden"
-              />
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className="p-2 rounded-lg text-ink/55 hover:text-ink hover:bg-ink/[0.05] transition-all"
-                title="Anexar imagem"
-              >
-                <Paperclip className="w-[18px] h-[18px]" />
-              </button>
-              <button
-                onClick={toggleListening}
-                className={cn(
-                  'p-2 rounded-lg transition-all',
-                  listening ? 'text-red-400 bg-red-500/10 animate-pulse' : 'text-ink/55 hover:text-ink hover:bg-ink/[0.05]'
-                )}
-                title={listening ? 'Parar ditado' : 'Ditar por voz'}
-              >
-                <Mic className="w-[18px] h-[18px]" />
-              </button>
-              <div className="h-4 w-px bg-ink/10 mx-1" />
-              <div className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg bg-ink/[0.04]">
-                <div className="w-2 h-2 rounded-full bg-green-400 glow-dot" />
-                <span className="text-xs text-ink/60">AI Ready</span>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={handlePlan}
-                disabled={!prompt.trim() || planning || generating}
-                title="Ver o plano (arquitetura + design) antes de gerar"
-                className="btn-outline text-sm py-2 px-3 hidden sm:flex items-center gap-1.5 disabled:opacity-40"
-              >
-                {planning ? (
-                  <div className="w-3.5 h-3.5 border-2 border-ink/25 border-t-white rounded-full animate-spin" />
-                ) : (
-                  <Sparkles className="w-3.5 h-3.5" />
-                )}
-                Plan
-              </button>
-              <button
-                onClick={() => handleGenerate()}
-                disabled={!prompt.trim() || generating}
-                className="btn-primary text-sm py-2 px-4 flex items-center gap-2"
-              >
-                {generating ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-ink/25 border-t-white rounded-full animate-spin" />
-                    {streamedChars > 0
-                      ? `Generating… ${streamedChars.toLocaleString()} chars`
-                      : phaseLabel || 'Generating...'}
-                  </>
-                ) : (
-                  <>
-                    Generate
-                    <ArrowRight className="w-4 h-4" />
-                  </>
-                )}
-              </button>
+      {/* Caixa de prompt */}
+      <div className="washi relative paper-card p-4 mb-10 animate-slide-up">
+        <Star size={14} fill className="absolute top-3 right-3 text-lavender-deep/70" />
+        <Star size={9} className="absolute top-5 right-9 text-rose-deep/60" rotate={20} />
+
+        <span className="hand text-lg text-ink/50">Descreva sua ideia...</span>
+
+        {attachedImage && (
+          <div className="flex items-center gap-2 mt-2 px-2.5 py-1.5 rounded-lg bg-lavender-soft/50 border border-paper-line2 w-fit max-w-full">
+            <ImageIcon className="w-3.5 h-3.5 text-lavender-ink flex-shrink-0" />
+            <span className="text-xs text-ink/75 truncate">{attachedImage.name}</span>
+            <button
+              onClick={() => setAttachedImage(null)}
+              className="p-0.5 rounded text-ink/55 hover:text-ink hover:bg-ink/10 flex-shrink-0"
+              title="Remover anexo"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
+
+        <textarea
+          ref={textareaRef}
+          value={prompt}
+          onChange={e => setPrompt(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder="Ex: um site de cafeteria moderna com tons de roxo e detalhes em creme"
+          rows={4}
+          className="w-full bg-transparent px-1 py-2 text-ink placeholder:text-ink/40 focus:outline-none resize-none text-[15px]"
+        />
+
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <div className="flex items-center gap-1">
+            <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileSelected} className="hidden" />
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="p-2 rounded-lg text-ink/55 hover:text-ink hover:bg-ink/[0.05] transition-all"
+              title="Anexar imagem"
+            >
+              <Paperclip className="w-[18px] h-[18px]" />
+            </button>
+            <button
+              onClick={toggleListening}
+              className={cn(
+                'p-2 rounded-lg transition-all',
+                listening ? 'text-rose-ink bg-rose-soft animate-pulse' : 'text-ink/55 hover:text-ink hover:bg-ink/[0.05]'
+              )}
+              title={listening ? 'Parar ditado' : 'Ditar por voz'}
+            >
+              <Mic className="w-[18px] h-[18px]" />
+            </button>
+            <div className="h-4 w-px bg-paper-line2 mx-1" />
+            <div className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg bg-sage-soft">
+              <div className="w-2 h-2 rounded-full bg-sage-deep" />
+              <span className="text-xs text-sage-ink font-medium">IA pronta</span>
             </div>
           </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handlePlan}
+              disabled={!prompt.trim() || planning || generating}
+              title="Ver o plano (arquitetura + design) antes de gerar"
+              className="btn-outline text-sm py-2 px-3 hidden sm:flex items-center gap-1.5 disabled:opacity-40"
+            >
+              {planning ? (
+                <div className="w-3.5 h-3.5 border-2 border-current/30 border-t-current rounded-full animate-spin" />
+              ) : (
+                <Sparkles className="w-3.5 h-3.5" />
+              )}
+              Ver plano
+            </button>
+            <button
+              onClick={() => handleGenerate()}
+              disabled={!prompt.trim() || generating}
+              className="btn-primary text-sm py-2 px-4 flex items-center gap-2"
+            >
+              {generating ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-current/30 border-t-current rounded-full animate-spin" />
+                  {streamedChars > 0
+                    ? `Gerando… ${streamedChars.toLocaleString()} caracteres`
+                    : phaseLabel || 'Gerando...'}
+                </>
+              ) : (
+                <>
+                  Gerar com IA
+                  <ArrowRight className="w-4 h-4" />
+                </>
+              )}
+            </button>
+          </div>
         </div>
-        <p className="text-center text-xs text-ink/45 mt-3">
-          Press <kbd className="px-1.5 py-0.5 rounded bg-ink/[0.05] text-ink/55">⌘</kbd> + <kbd className="px-1.5 py-0.5 rounded bg-ink/[0.05] text-ink/55">Enter</kbd> to generate
+
+        <p className="hand text-base text-ink/40 mt-2">
+          aperte ⌘ + Enter pra gerar
         </p>
       </div>
 
-      {/* Quick Start */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4 mb-10">
+      {/* Atalhos */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4 mb-12">
         {quickStarts.map((qs, i) => (
           <button
             key={qs.label}
             onClick={() => {
-              setPrompt(`Create a ${qs.label.toLowerCase()}: `);
+              setPrompt(qs.prompt);
               textareaRef.current?.focus();
             }}
-            className="group relative glass rounded-2xl p-5 text-left card-hover animate-slide-up overflow-hidden"
+            className="paper-card card-hover p-4 text-left animate-slide-up"
             style={{ animationDelay: `${i * 50}ms` }}
           >
-            <div className={cn('w-11 h-11 rounded-xl bg-gradient-to-br flex items-center justify-center mb-3 transition-transform group-hover:scale-110', qs.gradient)}>
-              <qs.icon className="w-5 h-5 text-ink" />
+            <div className={cn('w-10 h-10 rounded-xl flex items-center justify-center mb-3', qs.tint)}>
+              <qs.icon className="w-5 h-5" />
             </div>
-            <h3 className="font-semibold text-ink mb-0.5">{qs.label}</h3>
-            <p className="text-xs text-ink/55">{qs.desc}</p>
-            <div className="absolute inset-0 bg-gradient-to-t from-lavender/0 to-lavender/0 group-hover:from-lavender/10 transition-all duration-300 pointer-events-none" />
+            <h3 className="font-display font-medium text-ink">{qs.label}</h3>
+            <p className="text-xs text-ink/55 mt-0.5">{qs.desc}</p>
           </button>
         ))}
       </div>
 
-      {/* Recent Projects */}
+      {/* Projetos recentes */}
       <div>
-        <div className="flex items-center justify-between mb-5">
-          <h2 className="text-xl font-bold text-ink">Recent Projects</h2>
-          <button onClick={() => navigate('/projects')} className="text-sm text-lavender-ink hover:text-lavender-ink transition-colors flex items-center gap-1">
-            View all <ArrowRight className="w-3.5 h-3.5" />
+        <div className="flex items-end justify-between mb-5">
+          <div className="flex items-center gap-2">
+            <h2 className="font-display text-2xl font-semibold text-ink doodle-underline-sage">Projetos Recentes</h2>
+            <Star size={14} fill className="text-sage-deep/70 mb-1" rotate={-10} />
+          </div>
+          <button
+            onClick={() => navigate('/projects')}
+            className="text-sm font-display text-lavender-ink hover:text-lavender-deep transition-colors flex items-center gap-1"
+          >
+            Ver todos <ArrowRight className="w-3.5 h-3.5" />
           </button>
         </div>
+
         <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide -mx-4 px-4">
-          {recentProjects.map(p => (
+          {recentProjects.map((p, i) => (
             <div
               key={p.id}
               onClick={() => navigate(`/project/${p.id}`)}
-              className="group flex-shrink-0 w-72 glass rounded-2xl overflow-hidden card-hover cursor-pointer"
+              className="group flex-shrink-0 w-60 paper-card card-hover cursor-pointer p-4"
             >
-              <div className={cn('h-36 bg-gradient-to-br relative overflow-hidden', p.previewGradient)}>
-                <div className="absolute inset-0 bg-ink/10" />
-                <div className="absolute bottom-3 left-3 right-3">
-                  <div className="glass-strong rounded-lg p-2.5">
-                    <div className="h-1.5 w-3/4 bg-ink/15 rounded mb-1.5" />
-                    <div className="h-1.5 w-1/2 bg-ink/10 rounded" />
-                  </div>
+              <div className="flex items-start justify-between">
+                <div className="w-12 h-12 rounded-xl bg-paper-sunken flex items-center justify-center">
+                  <Star size={26} fill className={starTints[i % starTints.length]} rotate={i % 2 ? 6 : -6} />
                 </div>
-                <div className="absolute top-3 right-3">
-                  <span className={cn(
-                    'px-2 py-0.5 rounded-full text-[10px] font-medium backdrop-blur-md',
-                    p.status === 'live' && 'bg-green-500/20 text-green-300',
-                    p.status === 'building' && 'bg-lavender-soft text-lavender-ink',
-                    p.status === 'draft' && 'bg-ink/10 text-ink/70',
-                    p.status === 'error' && 'bg-red-500/20 text-red-300'
-                  )}>
-                    {p.status}
-                  </span>
-                </div>
-                {p.starred && <Star className="absolute top-3 left-3 w-4 h-4 text-amber-400 fill-amber-400" />}
-              </div>
-              <div className="p-4">
-                <div className="flex items-start justify-between">
-                  <div className="min-w-0 flex-1">
-                    <h3 className="font-semibold text-ink truncate">{p.name}</h3>
-                    <p className="text-xs text-ink/55 truncate mt-0.5">{p.description}</p>
-                  </div>
+                <div onClick={e => e.stopPropagation()}>
                   <Dropdown
                     items={[
-                      { label: 'Open', icon: <ArrowRight className="w-3.5 h-3.5" />, onClick: () => navigate(`/project/${p.id}`) },
-                      { label: p.starred ? 'Unstar' : 'Star', icon: <Star className="w-3.5 h-3.5" />, onClick: () => toggleStar(p.id) },
+                      { label: 'Abrir', icon: <ArrowRight className="w-3.5 h-3.5" />, onClick: () => navigate(`/project/${p.id}`) },
+                      { label: p.starred ? 'Desfavoritar' : 'Favoritar', icon: <StarIcon className="w-3.5 h-3.5" />, onClick: () => toggleStar(p.id) },
                       {
-                        label: 'Share',
+                        label: 'Compartilhar',
                         icon: <Share2 className="w-3.5 h-3.5" />,
                         onClick: () => {
                           const url = `${window.location.origin}/project/${p.id}`;
@@ -403,7 +386,7 @@ export function Home() {
                         },
                       },
                       {
-                        label: 'Delete',
+                        label: 'Excluir',
                         icon: <Trash2 className="w-3.5 h-3.5" />,
                         danger: true,
                         onClick: () => {
@@ -416,29 +399,46 @@ export function Home() {
                     ]}
                   />
                 </div>
-                <div className="flex items-center gap-3 mt-3 text-xs text-ink/45">
-                  <span className="capitalize">{p.type}</span>
-                  <span>·</span>
-                  <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{formatDate(p.lastModified)}</span>
-                </div>
+              </div>
+              <h3 className="font-display font-medium text-ink truncate mt-3">{p.name}</h3>
+              <p className="text-xs text-ink/55 truncate mt-0.5">{p.description}</p>
+              <div className="flex items-center gap-2 mt-3">
+                <span className={cn(
+                  'px-2 py-0.5 rounded-full text-[10px] font-medium',
+                  p.status === 'live' && 'bg-sage-soft text-sage-ink',
+                  p.status === 'building' && 'bg-lavender-soft text-lavender-ink',
+                  p.status === 'draft' && 'bg-paper-sunken text-ink/60',
+                  p.status === 'error' && 'bg-rose-soft text-rose-ink'
+                )}>
+                  {p.status}
+                </span>
+                <span className="hand text-sm text-ink/45">editado {formatDate(p.lastModified)}</span>
               </div>
             </div>
           ))}
+
+          <button
+            onClick={() => textareaRef.current?.focus()}
+            className="flex-shrink-0 w-60 rounded-2xl border-2 border-dashed border-paper-line2 flex flex-col items-center justify-center gap-2 text-ink/45 hover:text-lavender-ink hover:border-lavender-deep/50 transition-all"
+          >
+            <Plus className="w-6 h-6" />
+            <span className="hand text-lg">Novo Projeto</span>
+          </button>
         </div>
       </div>
 
       <Modal open={planText !== null} onClose={() => setPlanText(null)} className="max-w-2xl">
         <div className="p-6">
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 rounded-xl gradient-nexa flex items-center justify-center flex-shrink-0">
-              <Sparkles className="w-5 h-5 text-ink" />
+            <div className="w-10 h-10 rounded-xl bg-lavender flex items-center justify-center flex-shrink-0">
+              <Sparkles className="w-5 h-5 text-lavender-ink" />
             </div>
             <div className="min-w-0">
-              <h2 className="text-lg font-bold text-ink">Plano do projeto</h2>
+              <h2 className="font-display text-lg font-semibold text-ink">Plano do projeto</h2>
               <p className="text-sm text-ink/55">Arquitetura e design system que a IA vai seguir na geração</p>
             </div>
           </div>
-          <pre className="max-h-[52vh] overflow-y-auto whitespace-pre-wrap break-words text-xs text-ink/75 bg-ink/[0.03] border border-paper-line rounded-xl p-4 leading-relaxed font-mono">
+          <pre className="max-h-[52vh] overflow-y-auto whitespace-pre-wrap break-words text-xs text-ink/75 bg-paper-sunken border border-paper-line2 rounded-xl p-4 leading-relaxed font-mono">
             {planText || '—'}
           </pre>
           <div className="flex items-center justify-end gap-2 mt-4">
