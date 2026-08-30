@@ -235,7 +235,7 @@ export function ProjectWorkspace() {
             className={cn(
               'flex-shrink-0 border-r border-paper-line bg-paper min-h-0',
               isCompact
-                ? 'absolute inset-y-0 left-0 z-30 w-[240px] shadow-2xl'
+                ? 'absolute inset-y-0 left-0 z-30 w-[240px] shadow-paper-lg'
                 : 'w-[240px]'
             )}
           >
@@ -289,7 +289,7 @@ export function ProjectWorkspace() {
             className={cn(
               'flex-shrink-0 border-l border-paper-line bg-paper min-h-0',
               isCompact
-                ? 'absolute inset-y-0 right-0 z-30 w-[340px] max-w-[90vw] shadow-2xl'
+                ? 'absolute inset-y-0 right-0 z-30 w-[340px] max-w-[90vw] shadow-paper-lg'
                 : 'w-[340px]'
             )}
           >

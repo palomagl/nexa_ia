@@ -11,14 +11,14 @@ export function ToastContainer() {
         <div
           key={t.id}
           className={cn(
-            'glass-strong rounded-xl p-4 shadow-2xl animate-slide-up flex items-start gap-3',
-            t.type === 'success' && 'border-green-500/30',
-            t.type === 'error' && 'border-red-500/30',
+            'glass-strong rounded-xl p-4 shadow-paper-lg animate-slide-up flex items-start gap-3',
+            t.type === 'success' && 'border-sage-deep/40',
+            t.type === 'error' && 'border-rose-deep/40',
             t.type === 'loading' && 'border-lavender-deep/40'
           )}
         >
-          {t.type === 'success' && <CheckCircle2 className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />}
-          {t.type === 'error' && <XCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />}
+          {t.type === 'success' && <CheckCircle2 className="w-5 h-5 text-sage-ink flex-shrink-0 mt-0.5" />}
+          {t.type === 'error' && <XCircle className="w-5 h-5 text-rose-ink flex-shrink-0 mt-0.5" />}
           {t.type === 'info' && <Info className="w-5 h-5 text-lavender-ink flex-shrink-0 mt-0.5" />}
           {t.type === 'loading' && <Loader2 className="w-5 h-5 text-lavender-ink flex-shrink-0 mt-0.5 animate-spin" />}
           <div className="flex-1 min-w-0">

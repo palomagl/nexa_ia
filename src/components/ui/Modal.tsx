@@ -35,7 +35,7 @@ export function Modal({ open, onClose, children, className = '' }: Props) {
       <div className="absolute inset-0 bg-ink/40 backdrop-blur-sm" />
       <div
         ref={ref}
-        className={`relative glass-strong rounded-2xl shadow-2xl w-full max-w-md animate-slide-up ${className}`}
+        className={`relative glass-strong rounded-2xl shadow-paper-lg w-full max-w-md animate-slide-up ${className}`}
       >
         {children}
       </div>

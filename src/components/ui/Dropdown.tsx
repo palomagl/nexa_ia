@@ -35,14 +35,14 @@ export function Dropdown({ items, className = '' }: Props) {
         <MoreVertical className="w-4 h-4" />
       </button>
       {open && (
-        <div className="absolute right-0 top-full mt-1 w-48 glass-strong rounded-xl py-1.5 shadow-2xl z-50 animate-slide-up">
+        <div className="absolute right-0 top-full mt-1 w-48 glass-strong rounded-xl py-1.5 shadow-paper-lg z-50 animate-slide-up">
           {items.map((item, i) => (
             <button
               key={i}
               onClick={e => { e.stopPropagation(); item.onClick(); setOpen(false); }}
               className={cn(
                 'w-full text-left px-3 py-2 text-sm flex items-center gap-2.5 transition-colors',
-                item.danger ? 'text-red-400 hover:bg-red-500/10' : 'text-ink/75 hover:text-ink hover:bg-ink/[0.05]'
+                item.danger ? 'text-rose-ink hover:bg-rose-soft' : 'text-ink/75 hover:text-ink hover:bg-ink/[0.05]'
               )}
             >
               {item.icon}

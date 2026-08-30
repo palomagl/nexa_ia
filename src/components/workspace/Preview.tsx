@@ -86,7 +86,7 @@ export function Preview({ files, projectName }: Props) {
 
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-ink/[0.03] border border-paper-line text-xs text-ink/55">
-            <div className="w-1.5 h-1.5 rounded-full bg-green-400" />
+            <div className="w-1.5 h-1.5 rounded-full bg-sage-deep" />
             localhost:5173/
             {projectName.toLowerCase().replace(/\s+/g, '-')}
           </div>
@@ -128,7 +128,7 @@ export function Preview({ files, projectName }: Props) {
       <div className="flex-1 bg-paper overflow-auto flex items-start justify-center p-4">
         <div
           className={cn(
-            'bg-paper-card rounded-lg shadow-2xl overflow-hidden transition-all duration-300',
+            'bg-paper-card rounded-lg shadow-paper-lg overflow-hidden transition-all duration-300',
             device !== 'desktop' && 'border border-paper-line2'
           )}
           style={{

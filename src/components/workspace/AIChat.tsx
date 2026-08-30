@@ -279,7 +279,7 @@ export function AIChat({ projectId, messages, onCollapse }: Props) {
           <div>
             <span className="text-sm font-semibold text-ink">AI Assistant</span>
             <div className="flex items-center gap-1">
-              <div className="w-1.5 h-1.5 rounded-full bg-green-400" />
+              <div className="w-1.5 h-1.5 rounded-full bg-sage-deep" />
               <span className="text-[10px] text-ink/55">Online</span>
             </div>
           </div>
@@ -398,7 +398,7 @@ export function AIChat({ projectId, messages, onCollapse }: Props) {
                 onClick={toggleListening}
                 className={cn(
                   'p-1.5 rounded-lg transition-all',
-                  listening ? 'text-red-400 bg-red-500/10 animate-pulse' : 'text-ink/55 hover:text-ink hover:bg-ink/[0.05]'
+                  listening ? 'text-rose-ink bg-rose-soft animate-pulse' : 'text-ink/55 hover:text-ink hover:bg-ink/[0.05]'
                 )}
                 title={listening ? 'Parar ditado' : 'Ditar por voz'}
               >

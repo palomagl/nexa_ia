@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import { Sparkles, MessageSquare, Eye, History, Image as ImageIcon, ChevronDown } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { Star } from '../components/ui/Doodles';
+
+const stepTints = ['bg-lavender text-lavender-ink', 'bg-sage text-sage-ink', 'bg-rose text-rose-ink', 'bg-lavender-deep text-white'];
 
 const steps = [
   {
@@ -48,35 +51,33 @@ export function Help() {
   const [openFaq, setOpenFaq] = useState<number | null>(0);
 
   return (
-    <div className="max-w-3xl mx-auto px-4 lg:px-8 py-10">
-      <div className="text-center mb-10">
-        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-lavender-soft/70 border border-lavender-deep/30 mb-4">
-          <Sparkles className="w-3.5 h-3.5 text-lavender-ink" />
-          <span className="text-xs font-medium text-lavender-ink">Central de Ajuda</span>
+    <div className="max-w-3xl mx-auto px-4 lg:px-6 py-8 lg:py-10">
+      <div className="mb-10">
+        <div className="flex items-center gap-2">
+          <h1 className="font-display text-3xl font-semibold text-ink doodle-underline">Como o Nexa AI funciona</h1>
+          <Star size={16} fill className="text-lavender-deep/70 mb-1" rotate={-8} />
         </div>
-        <h1 className="text-2xl lg:text-3xl font-bold text-ink mb-2">Como o Nexa AI funciona</h1>
-        <p className="text-ink/60">
-          Você descreve o que quer, a IA cria o site/app e mostra funcionando na hora — e você refina
-          conversando, sem precisar escrever código.
+        <p className="hand text-xl text-ink/55 mt-1">
+          você descreve, a IA cria e mostra funcionando — e você refina conversando
         </p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-12">
-        {steps.map(s => (
-          <div key={s.title} className="glass rounded-2xl p-5">
-            <div className="w-9 h-9 rounded-xl gradient-nexa flex items-center justify-center mb-3">
-              <s.icon className="w-4 h-4 text-ink" />
+        {steps.map((s, i) => (
+          <div key={s.title} className="paper-card p-5">
+            <div className={cn('w-10 h-10 rounded-xl flex items-center justify-center mb-3', stepTints[i % stepTints.length])}>
+              <s.icon className="w-4 h-4" />
             </div>
-            <h3 className="font-semibold text-ink mb-1.5">{s.title}</h3>
+            <h3 className="font-display font-medium text-ink mb-1.5">{s.title}</h3>
             <p className="text-sm text-ink/60 leading-relaxed">{s.desc}</p>
           </div>
         ))}
       </div>
 
-      <h2 className="text-lg font-bold text-ink mb-4">Perguntas frequentes</h2>
+      <h2 className="font-display text-xl font-semibold text-ink mb-4">Perguntas frequentes</h2>
       <div className="space-y-2">
         {faqs.map((f, i) => (
-          <div key={f.q} className="glass rounded-xl overflow-hidden">
+          <div key={f.q} className="paper-card overflow-hidden">
             <button
               onClick={() => setOpenFaq(openFaq === i ? null : i)}
               className="w-full flex items-center justify-between gap-3 px-4 py-3.5 text-left"
@@ -91,9 +92,9 @@ export function Help() {
         ))}
       </div>
 
-      <div className="mt-10 glass rounded-2xl p-5 flex items-center gap-3">
-        <ImageIcon className="w-5 h-5 text-lavender-ink flex-shrink-0" />
-        <p className="text-sm text-ink/70">
+      <div className="washi mt-10 rounded-2xl border border-sage-deep/30 bg-sage-soft shadow-paper p-5 flex items-center gap-3">
+        <ImageIcon className="w-5 h-5 text-sage-ink flex-shrink-0" />
+        <p className="text-sm text-ink/75">
           Dica: quer usar uma foto ou logo sua no site? Anexe pelo ícone do clipe no chat do projeto e peça
           pra IA usá-la (ex.: "usa essa imagem como logo no cabeçalho").
         </p>
