@@ -379,190 +379,86 @@ async function collectModelText(prompt, { onChunk, ...opts } = {}) {
 |--------------------------------------------------------------------------
 */
 
-const PREVIEW_RUNTIME_CONTRACT = `
+const STANDARD_STACK_CONTRACT = `
 ======================================================================
-RUNTIME DO PREVIEW (OBRIGATÓRIO)
-======================================================================
-
-O código será executado em um iframe com:
-
-- React 18 (objeto global React)
-- ReactDOM 18
-- Babel Standalone com preset React (JSX → React.createElement)
-- Tailwind CSS via CDN
-
-NÃO existe bundler, NÃO existe npm.
-
-Cada arquivo precisa ser JavaScript + JSX válido.
-Mesmo os arquivos se chamando *.tsx, NÃO use TypeScript.
-
-ESTRUTURA OBRIGATÓRIA DE App.tsx:
-
-function App() {
-  // hooks e UI
-  return (
-    ...
-  );
-}
-
-======================================================================
-MÚLTIPLOS ARQUIVOS (quando o app for grande)
+STACK E FORMATO DO CÓDIGO (OBRIGATÓRIO)
 ======================================================================
 
-Você PODE (e para apps com várias seções, DEVE) dividir a aplicação em
-mais de um arquivo — por exemplo App.tsx + components/Header.tsx +
-components/Hero.tsx + components/Footer.tsx — para não precisar gerar
-tudo de uma vez num único arquivo gigante.
+O código roda em um projeto Vite + React 18 + TypeScript + Tailwind CSS
+normal (empacotado pelo Sandpack no preview, exportável como projeto real).
 
-Como isso funciona no runtime do Preview (sem bundler):
+Escreva React + TypeScript PADRÃO:
 
-- TODOS os arquivos são concatenados e executados no MESMO escopo global.
-- Por isso: NÃO use import, NÃO use export, em NENHUM arquivo — nem em
-  App.tsx nem nos demais.
-- Cada arquivo declara um ou mais componentes via "function Nome() { ... }"
-  (nomes de função únicos entre TODOS os arquivos — sem colisão).
-- App.tsx usa os componentes de outros arquivos diretamente pelo nome,
-  como se já estivessem no mesmo arquivo: <Header /> <Hero /> <Footer />
-- App.tsx é sempre o arquivo de entrada e deve declarar function App().
-- Nomeie os demais arquivos como "components/NomeDoComponente.tsx".
-- Se o app for pequeno/simples, é perfeitamente válido manter tudo em um
-  único App.tsx — só divida quando isso realmente ajudar a organizar.
+- Use import / export de verdade (ESM). Nada de escopo global.
+- UM componente principal por arquivo, com "export default".
+- Arquivo de entrada: App.tsx, com "export default function App()".
+- Hooks importados do react: import { useState, useEffect } from 'react'.
+- Tipos TypeScript são bem-vindos, mas mantenha-os simples: um
+  "type Props = { ... }" para as props de cada componente já basta.
+  Nada de generics complicados, decorators ou classes.
 
-DESIGN TOKENS COMPARTILHADOS (quando houver mais de um arquivo):
+ORGANIZAÇÃO DOS ARQUIVOS:
 
-- Crie "components/designTokens.tsx" declarando UMA constante global com a
-  identidade visual — cores (em hex ou classes Tailwind), fontes, raio de
-  borda, sombras, espaçamento. Ex.:
+- Os caminhos nos marcadores ===FILE:...=== são relativos à pasta src/
+  do projeto — escreva "App.tsx", "components/Header.tsx", "theme.ts"
+  (NÃO escreva "src/App.tsx").
+- App.tsx na raiz; componentes de seção em "components/NomeDaSecao.tsx".
+- Imports ENTRE os arquivos gerados são relativos:
+  import Header from './components/Header';
+  import { theme } from '../theme';
+- Um único "theme.ts" exporta a identidade visual (paleta, fontes, raio,
+  sombra) como um objeto tipado; todos os componentes importam desse
+  mesmo arquivo — é o que garante coerência visual entre as seções.
+  Ex.: export const theme = { colors: { bg: '#0B0B0F', accent: '#7C5CFF' }, ... } as const;
 
-  const theme = {
-    colors: { bg: "#0B0B0F", surface: "#15151D", text: "#F5F5F7", muted: "#9A9AA8", accent: "#7C5CFF" },
-    font: { display: "'Space Grotesk', sans-serif", body: "'Inter', sans-serif" },
-    radius: "1rem",
-  };
+DEPENDÊNCIAS DISPONÍVEIS:
 
-- TODOS os componentes leem desse mesmo "theme" (ele está no escopo global,
-  use direto pelo nome). Isso força coerência visual entre as seções.
-- Não redefina cores soltas por componente — puxe sempre do "theme".
+- react, react-dom
+- lucide-react  (ícones: import { Menu, X, ArrowRight } from 'lucide-react')
 
-Regras rígidas de compatibilidade (valem para TODOS os arquivos):
-
-- NÃO use import
-- NÃO use export
-- NÃO use export default
-- NÃO use lucide-react
-- NÃO use react-router-dom
-- NÃO use nenhuma biblioteca externa
-- NÃO use interfaces TypeScript
-- NÃO use type aliases
-- NÃO use generics (ex: useState<number>)
-- NÃO use enums
-- NÃO use React.FC
-- NÃO use "as Type" / "as const" / satisfies
-- NÃO use anotações TypeScript (props: Props, : string, : JSX.Element)
-- NÃO use TypeScript que o Babel React não consiga parsear
-
-Como usar React:
-
-- Hooks sempre via objeto React:
-  React.useState
-  React.useEffect
-  React.useMemo
-  React.useCallback
-  React.useRef
-  React.useReducer
-  React.useContext
-  React.useId
-- Fragmentos: React.Fragment ou <>...</>
-- Eventos e JSX padrão do React
+NÃO importe nenhuma outra biblioteca (sem react-router, sem framer-motion,
+sem date libs, etc.) — use React puro para tudo (navegação/abas/modais via
+useState).
 
 ÍCONES:
 
-Não use bibliotecas de ícones.
-Use uma destas opções:
+Prefira lucide-react. SVG inline simples também é permitido. NÃO tente
+desenhar ícones complexos à mão (dezenas de curvas) — é fácil corromper o
+arquivo repetindo coordenadas. Na dúvida, use um ícone do lucide-react.
 
-- emoji quando fizer sentido
-- SVG inline em JSX
-- elementos CSS
-- caracteres Unicode
+IMAGENS (OBRIGATÓRIO):
 
-SVG inline é permitido e recomendado para um visual profissional.
-
-CUIDADO ao escrever o atributo "d" de um <path> de SVG: use ícones SIMPLES
-(poucos comandos, coordenadas curtas — o clássico "menu hamburguer",
-"seta", "X de fechar", "lupa" com poucos pontos). NÃO tente desenhar
-ícones fotorrealistas ou muito detalhados com dezenas de curvas — é fácil
-entrar num loop repetindo o mesmo trecho de números até o arquivo ficar
-corrompido. Na dúvida entre um SVG elaborado e um emoji/Unicode, prefira
-o emoji/Unicode: funciona sempre e nunca corrompe o arquivo.
-
-NAVEGAÇÃO:
-
-Não use rotas reais.
-Simule navegação/páginas/seções com React.useState (tabs, âncoras, menu, views).
-
-IMAGENS (OBRIGATÓRIO — leia com atenção):
-
-NUNCA escreva a URL da imagem você mesmo (nem Unsplash, nem picsum.photos,
-nem nenhuma outra). IDs de foto inventados quase sempre não existem — a
-imagem não carrega e a página fica com buracos.
-
-Em vez disso, use este marcador no lugar do src. O SERVIDOR troca esse
-marcador por uma foto REAL, de banco de imagens de verdade, buscada pelo
-assunto descrito, antes do código chegar no navegador:
+NUNCA escreva a URL da imagem você mesmo (nem Unsplash, nem picsum, nem
+nenhuma). Use este marcador no lugar do src — o SERVIDOR troca por uma
+foto REAL antes de o código chegar no navegador:
 
 {{IMG: descrição curta em inglês do que a foto deveria mostrar}}
 
-Exemplos:
-<img src="{{IMG: cozy coffee shop interior with wooden tables}}" alt="Interior aconchegante da cafeteria" className="w-full h-full object-cover" />
-<img src="{{IMG: handmade ceramic mug on wooden table}}" alt="Caneca de cerâmica artesanal" className="w-full h-full object-cover" />
+Ex.: <img src="{{IMG: cozy coffee shop interior with wooden tables}}" alt="Interior da cafeteria" className="w-full h-full object-cover" />
 
-Regras:
+- Descrição SEMPRE em inglês, curta (3-8 palavras), específica.
+- Cada imagem diferente = descrição diferente.
+- alt em português, descritivo.
+- Sempre object-cover + altura/largura controladas.
 
-- A descrição é SEMPRE em inglês (a busca funciona melhor assim), curta
-  (3-8 palavras) e específica ao que a foto deveria mostrar de verdade —
-  não genérica. Ex.: "black and white realistic tattoo art" é melhor que
-  "tattoo image".
-- Cada imagem diferente precisa de uma descrição diferente.
-- alt continua em português, descritivo.
-- Sempre object-cover + altura/largura controladas (nunca imagem esticada).
-- Se a imagem não for essencial, prefira composição só com CSS/Tailwind
-  em vez de mais uma foto genérica.
+INTERATIVIDADE (botões e links NÃO PODEM "recarregar a página"):
 
-INTERATIVIDADE (OBRIGATÓRIO — botões e links NÃO PODEM "recarregar a página"):
+- Todo <button> que não envia formulário PRECISA de type="button".
+- Todo <form> PRECISA de onSubmit={(e) => { e.preventDefault(); ... }}.
+- PROIBIDO <a href="#"> decorativo — se não há destino real, é uma AÇÃO:
+  use <button type="button" onClick={...}>. Reserve <a> para link externo
+  real (href de URL real, target="_blank" rel="noopener").
+- Todo elemento que parece clicável precisa de um onClick de verdade.
 
-Esse é um erro grave e comum: um clique que reseta todo o estado do app e
-deixa a tela com aparência quebrada por um instante. Siga à risca:
+CONTRASTE E CORES:
 
-- Todo <button> que não deveria enviar formulário PRECISA de type="button".
-  Sem isso, um <button> dentro de um <form> vira type="submit" por padrão
-  do HTML — o navegador tenta enviar o formulário de verdade, a "página"
-  reinicia do zero e todo o estado (menus abertos, abas, contadores) some.
-- Todo <form> DEVE ter onSubmit={(e) => { e.preventDefault(); ...sua lógica... }}.
-  Sem preventDefault, o mesmo problema acontece.
-- PROIBIDO usar <a href="#"> como link "decorativo"/placeholder — se não
-  existe destino real, NÃO é um link, é uma AÇÃO, então use
-  <button type="button" onClick={...}> com uma função de verdade (mesmo
-  que simples, tipo rolar até uma seção ou abrir um modal). Isso vale para
-  CTAs como "Ver todos os produtos", "Saiba mais", itens de menu, ícones
-  sociais sem link real, etc. — todos viram <button>, nunca <a href="#">.
-  Reserve <a> exclusivamente para link externo de verdade, com href sendo
-  uma URL real (não "#") e target="_blank" rel="noopener".
-- Todo elemento clicável que parece interativo (botão, card, ícone de menu)
-  PRECISA ter um onClick de verdade fazendo algo — nunca deixe um botão
-  "decorativo" sem função quando o usuário claramente vai esperar uma ação.
+- Texto sempre com contraste forte sobre o fundo.
+- 1 cor de destaque coerente com o negócio + neutros. Evite 3+ cores
+  vibrantes brigando na mesma tela.
 
-CONTRASTE E CORES (OBRIGATÓRIO):
-
-- Texto sempre com contraste forte sobre o fundo (nunca texto cinza claro
-  sobre fundo branco, nunca texto escuro sobre fundo escuro).
-- Escolha 1 cor de destaque (accent) coerente com o negócio + neutros
-  (branco/preto/tons de cinza). Evite 3+ cores vibrantes brigando entre si
-  na mesma tela.
-
-QUALIDADE NÃO PODE CAIR POR CAUSA DESSAS REGRAS.
-
-Ainda assim você DEVE criar uma aplicação visualmente rica, completa
-e profissional, com múltiplas seções e interatividade real.
+QUALIDADE NÃO PODE CAIR POR CAUSA DESSAS REGRAS. Ainda assim você DEVE
+criar uma aplicação visualmente rica, completa e profissional, com
+múltiplas seções e interatividade real.
 `;
 
 /*
@@ -644,15 +540,15 @@ function writeStreamEvent(res, event) {
 
 /*
 |--------------------------------------------------------------------------
-| VALIDAÇÃO DE SINTAXE — mesmo Babel do Preview, rodado no servidor
+| VALIDAÇÃO DE SINTAXE — parse React + TypeScript, arquivo por arquivo
 |--------------------------------------------------------------------------
 |
-| Com vários arquivos concatenados no mesmo script pro Preview (sem
-| bundler, tudo no mesmo escopo global), UM arquivo com JSX mal formado
-| quebra a aplicação inteira — e a linha do erro que aparece no navegador
-| não bate com o arquivo real, porque o Babel já está processando um
-| "script" gigante com tudo colado. Por isso validamos CADA arquivo aqui,
-| isoladamente, com o MESMO Babel usado no Preview, antes de entregar.
+| O bundler (Sandpack no preview / Vite no export) resolve os imports —
+| mas um único arquivo com JSX ou TS mal formado quebra o build inteiro,
+| com uma mensagem de erro difícil de rastrear. Então checamos CADA
+| arquivo isoladamente com o parser do Babel (preset react + typescript)
+| antes de entregar. É só um teste de sintaxe: não resolvemos imports
+| aqui, só confirmamos que o arquivo faz parse.
 |
 */
 
@@ -664,9 +560,11 @@ function validateFileSyntax(file) {
   }
 
   try {
+    // filename com .tsx liga o parse de JSX no preset-typescript do Babel 8;
+    // .ts / .js não ativam JSX (correto pra um theme.ts só com objeto).
     Babel.transform(file.content || '', {
-      presets: [['react', { runtime: 'classic' }]],
-      filename: file.name || 'App.jsx'
+      presets: [['react', { runtime: 'automatic' }], 'typescript'],
+      filename: file.name || 'App.tsx'
     });
     return { valid: true };
   } catch (error) {
@@ -695,9 +593,9 @@ sem fechar, chave/parêntese faltando por falta de espaço). Se for esse o
 caso, COMPLETE o arquivo de forma coerente com o que já existe — feche
 todas as tags e blocos, termine a seção que ficou pela metade.
 
-Regras (mesmas de sempre): sem import, sem export, sem TypeScript, sem
-libs externas, ícones via SVG/emoji/Unicode. Mantenha o mesmo design e
-conteúdo, só termine/corrija o que está quebrado.
+Regras (mesmas de sempre): React + TypeScript padrão, com import/export
+reais; só react/react-dom/lucide-react como libs. Mantenha o mesmo design
+e conteúdo, só termine/corrija o que está quebrado.
 
 Responda em TEXTO PURO, sem JSON, sem \`\`\`, usando exatamente:
 
@@ -803,7 +701,8 @@ Um passo de planejamento já definiu a arquitetura, o design system e a
 lista de arquivos desta aplicação. Você DEVE seguir este plano:
 
 - Gere EXATAMENTE os arquivos listados no plano (mesmos caminhos), mais
-  o components/designTokens.tsx com o design system descrito.
+  o theme.ts com o design system descrito (objeto exportado, importado
+  pelos componentes).
 - Use a paleta, as fontes e o tom definidos no plano — não invente outra
   identidade visual.
 - Cada seção do plano precisa aparecer, completa, no app final.
@@ -827,7 +726,7 @@ ${buildAttachmentInstructions(attachment)}
 
 ${buildPlanInstructions(plan)}
 
-${PREVIEW_RUNTIME_CONTRACT}
+${STANDARD_STACK_CONTRACT}
 
 ======================================================================
 OBJETIVO
@@ -969,12 +868,12 @@ ESCALA (dimensione ao pedido)
 ======================================================================
 
 - Pedido simples (1 landing, 1 tela): 4 a 6 arquivos
-  (App.tsx + designTokens.tsx + 2-4 componentes de seção).
+  (App.tsx + theme.ts + 2-4 componentes de seção).
 - App / dashboard / site com várias páginas ou seções: 8 a 14 arquivos,
   um componente por seção/tela, cada um no seu arquivo.
 - NUNCA entregue tudo num App.tsx só quando o app tem 3+ seções.
-- App.tsx deve ser basicamente a composição: layout + <Header/> <Hero/>
-  <Secao/>... <Footer/>, com o estado de navegação/tema no topo.
+- App.tsx importa e compõe: layout + <Header/> <Hero/> <Secao/>... <Footer/>,
+  com o estado de navegação no topo passado por props aos componentes.
 
 ======================================================================
 FORMATO DA RESPOSTA
@@ -983,19 +882,28 @@ FORMATO DA RESPOSTA
 NÃO retorne JSON. NÃO use blocos de código Markdown (\`\`\`).
 
 Retorne TEXTO PURO usando exatamente estes marcadores, cada um sozinho
-em sua própria linha. Use UM bloco ===FILE:caminho=== por arquivo — pode
-ter só App.tsx, ou App.tsx + vários components/Nome.tsx (veja a seção
-MÚLTIPLOS ARQUIVOS acima):
+em sua própria linha. Use UM bloco ===FILE:caminho=== por arquivo — o
+caminho é relativo a src/ (ex.: App.tsx, theme.ts, components/Header.tsx):
 
 ===EXPLANATION===
 Descrição curta da aplicação criada (1-2 frases).
+===FILE:theme.ts===
+export const theme = {
+  colors: { bg: '#ffffff', text: '#0a0a0a', accent: '#6d28d9' },
+} as const;
 ===FILE:App.tsx===
-function App() {
-  ...código completo, sem import, sem export...
+import Header from './components/Header';
+
+export default function App() {
+  return (
+    <div>
+      <Header />
+    </div>
+  );
 }
 ===FILE:components/Header.tsx===
-function Header() {
-  ...
+export default function Header() {
+  return <header>...</header>;
 }
 ===END===
 
@@ -1004,12 +912,11 @@ Regras:
 - Os marcadores ===EXPLANATION===, ===FILE:caminho=== e ===END=== devem
   aparecer exatamente assim, sozinhos na linha, sem texto extra.
 - O conteúdo entre cada ===FILE:...=== e o próximo marcador é o
-  código-fonte PURO desse arquivo, sem escaping, sem aspas duplicadas,
-  exatamente como um arquivo .tsx.
+  código-fonte PURO desse arquivo, sem escaping, exatamente como um .tsx.
 - NÃO coloque \`\`\` em nenhum lugar da resposta.
-- App.tsx deve começar com function App() e NÃO deve conter import nem export.
-- Se dividir em mais arquivos, cada um também sem import/export (ver regras
-  de MÚLTIPLOS ARQUIVOS acima).
+- App.tsx tem "export default function App()" e importa os demais arquivos
+  por caminho relativo (./components/..., ./theme).
+- Cada componente tem seu próprio "export default".
 
 ======================================================================
 IMPORTANTE
@@ -1038,14 +945,15 @@ Crie uma experiência visual completa baseada no pedido.
 |
 */
 
-// Versão enxuta das regras de compatibilidade — usada nos passos internos
-// (regenerar arquivo, revisar), onde reembutir o contrato inteiro só gasta
-// orçamento de tokens à toa.
-const COMPAT_RULES_SHORT = `
-REGRAS DE COMPATIBILIDADE (runtime sem bundler, tudo no mesmo escopo global):
-- SEM import, SEM export, SEM TypeScript (nada de : tipos, interface, generics, "as").
-- Hooks via objeto React (React.useState, React.useEffect, ...).
-- Ícones: SVG inline simples, emoji ou Unicode — nunca lucide-react.
+// Versão enxuta das regras da stack — usada nos passos internos (regenerar
+// arquivo, revisar), onde reembutir o contrato inteiro só gasta orçamento
+// de tokens à toa.
+const STACK_RULES_SHORT = `
+REGRAS DA STACK (Vite + React 18 + TypeScript + Tailwind, empacotado de verdade):
+- React + TS PADRÃO: import/export ESM, "export default" por componente, hooks do 'react'.
+- Caminhos relativos a src/ (App.tsx, theme.ts, components/X.tsx); imports entre arquivos relativos (./components/X, ../theme).
+- Libs: só react, react-dom, lucide-react. Nada além disso.
+- Ícones: lucide-react (ou SVG inline simples).
 - Imagens: use o marcador {{IMG: descrição curta em inglês}} no src, nunca URL própria.
 - Todo <button> não-submit precisa de type="button"; todo <form> precisa de onSubmit com e.preventDefault().
 - Nada de <a href="#"> — ação é <button type="button" onClick>.
@@ -1058,8 +966,8 @@ REGRAS DE COMPATIBILIDADE (runtime sem bundler, tudo no mesmo escopo global):
 async function planProject(prompt, attachment) {
   const planPrompt = `
 Você é um diretor de arte + arquiteto frontend. NÃO escreva código agora.
-Planeje uma aplicação React (single-page, roda em iframe com Tailwind) para
-o pedido abaixo.
+Planeje uma aplicação React (Vite + React 18 + TypeScript + Tailwind,
+single-page) para o pedido abaixo.
 
 PEDIDO:
 ${prompt}
@@ -1075,9 +983,9 @@ DESIGN SYSTEM:
 - fontes: 1 par (display + corpo), nomes de Google Fonts reais
 - personalidade visual: raio de borda, uso de sombra, densidade, 2-3 adjetivos
 
-ARQUIVOS (caminho — responsabilidade em 1 linha):
-- App.tsx — composição + estado de navegação/tema
-- components/designTokens.tsx — a constante theme com o design system acima
+ARQUIVOS (caminho relativo a src/ — responsabilidade em 1 linha):
+- App.tsx — composição + estado de navegação
+- theme.ts — o objeto theme exportado com o design system acima
 - components/<Nome>.tsx — <seção> ...
 (liste TODOS: 4-6 arquivos p/ landing simples, 8-14 p/ app com várias seções)
 
@@ -1112,18 +1020,18 @@ async function regenerateMissingFile(filePath, prompt, plan, existingFiles) {
     .join('\n\n');
 
   const filePrompt = `
-${COMPAT_RULES_SHORT}
+${STACK_RULES_SHORT}
 
 Você está completando uma aplicação React que já foi parcialmente gerada.
 PEDIDO ORIGINAL: ${prompt}
 
 ${plan ? `PLANO:\n${plan}\n` : ''}
-ARQUIVOS JÁ EXISTENTES (não reescreva, só use os nomes/o theme deles):
+ARQUIVOS JÁ EXISTENTES (não reescreva, só importe deles pelo caminho relativo):
 ${context}
 
 Falta gerar SÓ este arquivo: ${filePath}
-Gere-o completo, coerente com o design e o theme dos arquivos acima, sem
-import/export, sem TypeScript.
+Gere-o completo, com import/export normais, coerente com o design e o
+theme dos arquivos acima. Importe o que precisar deles por caminho relativo.
 
 Responda em TEXTO PURO, exatamente:
 
@@ -1151,9 +1059,9 @@ async function reviewProject(prompt, plan, files) {
   // o design system e a composição/ritmo do App.tsx. Rever todos os
   // componentes um a um faz o flash regenerar tudo e a geração leva minutos.
   // Os demais arquivos vão só como contexto de leitura (não pra reescrever).
-  // Só o App.tsx é reescrevível na revisão. Mexer no designTokens.tsx é
-  // arriscado (renomear uma chave do theme quebra todos os componentes que
-  // a usam, sem erro de sintaxe) e mexer nos componentes um a um é lento.
+  // Só o App.tsx é reescrevível na revisão. Mexer no theme.ts é arriscado
+  // (renomear uma chave do theme quebra todos os componentes que a importam,
+  // sem erro de sintaxe) e mexer nos componentes um a um é lento.
   const isEditable = f => f.name.endsWith('App.tsx');
 
   const editable = files.filter(isEditable);
@@ -1169,10 +1077,10 @@ async function reviewProject(prompt, plan, files) {
     .join('\n\n');
 
   const reviewPrompt = `
-${COMPAT_RULES_SHORT}
+${STACK_RULES_SHORT}
 
 Você é um diretor de design fazendo a revisão final de coesão desta
-aplicação React. Mantenha as regras de compatibilidade acima.
+aplicação React. Mantenha as regras da stack acima (import/export reais).
 
 PEDIDO ORIGINAL: ${prompt}
 ${plan ? `\nPLANO:\n${plan}\n` : ''}
@@ -1294,8 +1202,8 @@ app.post('/api/generate', async (req, res) => {
 
     let rawFiles = fileSections.map(s => ({
       // Normaliza o caminho: o modelo às vezes escreve "src/components/X.tsx",
-      // às vezes "components/X.tsx". Padronizamos sem o "src/" (é o que o
-      // contrato de runtime usa e o que o Preview espera).
+      // às vezes "components/X.tsx". Padronizamos sem o "src/" — o front
+      // recoloca o prefixo ao montar o bundle do Sandpack.
       name: (s.arg || 'App.tsx').replace(/^\.?\/*(src\/)?/, ''),
       content: s.content.trim()
     }));
@@ -1310,16 +1218,17 @@ app.post('/api/generate', async (req, res) => {
       if (appFileGen) {
         rawFiles.unshift(appFileGen);
       } else {
-        // Fallback mínimo: compõe todos os componentes conhecidos em ordem.
+        // Fallback mínimo: importa e compõe todos os componentes conhecidos.
         const comps = rawFiles
-          .map(f => f.name.replace(/^components\//, '').replace(/\.tsx$/, ''))
-          .filter(n => n !== 'designTokens');
+          .filter(f => /^components\/[A-Z][A-Za-z0-9_]*\.tsx$/.test(f.name))
+          .map(f => f.name.replace(/^components\//, '').replace(/\.tsx$/, ''));
         rawFiles.unshift({
           name: 'App.tsx',
           content:
-            `function App() {\n  return (\n    <div>\n` +
+            comps.map(c => `import ${c} from './components/${c}';`).join('\n') +
+            `\n\nexport default function App() {\n  return (\n    <div>\n` +
             comps.map(c => `      <${c} />`).join('\n') +
-            `\n    </div>\n  );\n}`,
+            `\n    </div>\n  );\n}\n`,
         });
       }
     }
@@ -1529,7 +1438,7 @@ HISTÓRICO
 
 ${previousMessages}
 
-${PREVIEW_RUNTIME_CONTRACT}
+${STANDARD_STACK_CONTRACT}
 
 ======================================================================
 OBJETIVO
@@ -1558,7 +1467,7 @@ essa alteração aplicada.
 Se o usuário reportar um problema (ex.: "as imagens não aparecem",
 "o botão reinicia a página", "clicar não faz nada", "as cores estão
 feias"), esse é EXATAMENTE o tipo de bug coberto pelas seções IMAGENS,
-INTERATIVIDADE e CONTRASTE E CORES do contrato de runtime acima —
+INTERATIVIDADE e CONTRASTE E CORES do contrato da stack acima —
 revise TODO o arquivo procurando essas violações específicas (URLs de
 imagem inventadas, <button> sem type="button" dentro de <form>, <form>
 sem preventDefault, <a href="#">, contraste ruim) e corrija todas as
@@ -1579,7 +1488,7 @@ devolva SÓ esse arquivo — mas devolva.
 
 Se fizer sentido extrair uma seção nova para um arquivo próprio (ex.:
 criar components/Testimonials.tsx), pode criar — desde que App.tsx
-também seja atualizado para usar esse novo componente pelo nome.
+também seja atualizado para importar e usar esse novo componente.
 
 ======================================================================
 FORMATO
@@ -1593,11 +1502,13 @@ em sua própria linha:
 ===MESSAGE===
 Resumo curto da alteração realizada.
 ===FILE:App.tsx===
-function App() {
-  ...arquivo COMPLETO já atualizado, sem import, sem export...
+import Header from './components/Header';
+
+export default function App() {
+  ...arquivo COMPLETO já atualizado, com import/export normais...
 }
 ===FILE:components/Header.tsx===
-function Header() {
+export default function Header() {
   ...arquivo COMPLETO, só se este arquivo também mudou...
 }
 ===END===
