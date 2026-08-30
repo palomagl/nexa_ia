@@ -15,7 +15,7 @@ export function Sidebar() {
     { icon: Home, label: 'Home', path: '/' },
     { icon: Folder, label: 'Projects', path: '/projects' },
     { icon: Star, label: 'Starred', path: '/starred' },
-    { icon: Clock, label: 'Recently viewed', path: '/recent' },
+    { icon: Clock, label: 'All Projects', path: '/all' },
     { icon: Users, label: 'Shared with you', path: '/shared' },
     { icon: HelpCircle, label: 'Help Center', path: '/help' },
   ];

@@ -18,7 +18,7 @@ export function CommandPalette() {
     { icon: Home, label: 'Go to Home', action: () => navigate('/') },
     { icon: Folder, label: 'Go to Projects', action: () => navigate('/projects') },
     { icon: Star, label: 'Go to Starred', action: () => navigate('/starred') },
-    { icon: Clock, label: 'Go to Recently viewed', action: () => navigate('/recent') },
+    { icon: Clock, label: 'Go to All Projects', action: () => navigate('/all') },
     { icon: Users, label: 'Go to Shared with you', action: () => navigate('/shared') },
     { icon: Settings, label: 'Go to Settings', action: () => navigate('/settings') },
     { icon: Plus, label: 'Create new project', action: () => navigate('/') },

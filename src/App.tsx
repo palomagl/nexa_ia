@@ -39,7 +39,7 @@ function App() {
             <Route path="/projects" element={<Projects />} />
             <Route path="/project/:id" element={<ProjectWorkspace />} />
             <Route path="/starred" element={<FilteredProjects filter="starred" />} />
-            <Route path="/recent" element={<FilteredProjects filter="recent" />} />
+            <Route path="/all" element={<FilteredProjects filter="all" />} />
             <Route path="/shared" element={<FilteredProjects filter="shared" />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/help" element={<Help />} />
