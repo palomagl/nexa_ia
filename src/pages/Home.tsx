@@ -214,14 +214,14 @@ export function Home() {
     <div className="max-w-6xl mx-auto px-4 lg:px-8 py-8 lg:py-12">
       {/* Hero */}
       <div className="text-center mb-10 animate-fade-in">
-        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-nexa-500/10 border border-nexa-500/20 mb-6">
-          <Sparkles className="w-3.5 h-3.5 text-nexa-400" />
-          <span className="text-xs font-medium text-nexa-300">Powered by NEXA AI</span>
+        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-lavender-soft/70 border border-lavender-deep/30 mb-6">
+          <Sparkles className="w-3.5 h-3.5 text-lavender-ink" />
+          <span className="text-xs font-medium text-lavender-ink">Powered by NEXA AI</span>
         </div>
-        <h1 className="text-3xl lg:text-5xl font-extrabold tracking-tight text-white mb-3 text-balance">
+        <h1 className="text-3xl lg:text-5xl font-extrabold tracking-tight text-ink mb-3 text-balance">
           What will you <span className="gradient-text">build</span> today?
         </h1>
-        <p className="text-white/50 text-base lg:text-lg">Create websites and apps by chatting with AI.</p>
+        <p className="text-ink/60 text-base lg:text-lg">Create websites and apps by chatting with AI.</p>
       </div>
 
       {/* Prompt Box */}
@@ -229,12 +229,12 @@ export function Home() {
         <div className="absolute inset-0 gradient-nexa opacity-20 blur-2xl rounded-3xl" />
         <div className="relative glass-strong rounded-2xl p-2 shadow-2xl">
           {attachedImage && (
-            <div className="flex items-center gap-2 mx-2 mt-2 px-2.5 py-1.5 rounded-lg bg-white/[0.04] border border-white/10 w-fit max-w-full">
-              <ImageIcon className="w-3.5 h-3.5 text-nexa-400 flex-shrink-0" />
-              <span className="text-xs text-white/70 truncate">{attachedImage.name}</span>
+            <div className="flex items-center gap-2 mx-2 mt-2 px-2.5 py-1.5 rounded-lg bg-ink/[0.05] border border-paper-line2 w-fit max-w-full">
+              <ImageIcon className="w-3.5 h-3.5 text-lavender-ink flex-shrink-0" />
+              <span className="text-xs text-ink/75 truncate">{attachedImage.name}</span>
               <button
                 onClick={() => setAttachedImage(null)}
-                className="p-0.5 rounded text-white/40 hover:text-white hover:bg-white/10 flex-shrink-0"
+                className="p-0.5 rounded text-ink/55 hover:text-ink hover:bg-ink/10 flex-shrink-0"
                 title="Remover anexo"
               >
                 <X className="w-3.5 h-3.5" />
@@ -248,7 +248,7 @@ export function Home() {
             onKeyDown={handleKeyDown}
             placeholder="Describe what you want to build..."
             rows={4}
-            className="w-full bg-transparent px-4 py-3 text-white placeholder:text-white/30 focus:outline-none resize-none text-[15px]"
+            className="w-full bg-transparent px-4 py-3 text-ink placeholder:text-ink/45 focus:outline-none resize-none text-[15px]"
           />
           <div className="flex items-center justify-between px-2 pb-1">
             <div className="flex items-center gap-1">
@@ -261,7 +261,7 @@ export function Home() {
               />
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="p-2 rounded-lg text-white/40 hover:text-white hover:bg-white/5 transition-all"
+                className="p-2 rounded-lg text-ink/55 hover:text-ink hover:bg-ink/[0.05] transition-all"
                 title="Anexar imagem"
               >
                 <Paperclip className="w-[18px] h-[18px]" />
@@ -270,16 +270,16 @@ export function Home() {
                 onClick={toggleListening}
                 className={cn(
                   'p-2 rounded-lg transition-all',
-                  listening ? 'text-red-400 bg-red-500/10 animate-pulse' : 'text-white/40 hover:text-white hover:bg-white/5'
+                  listening ? 'text-red-400 bg-red-500/10 animate-pulse' : 'text-ink/55 hover:text-ink hover:bg-ink/[0.05]'
                 )}
                 title={listening ? 'Parar ditado' : 'Ditar por voz'}
               >
                 <Mic className="w-[18px] h-[18px]" />
               </button>
-              <div className="h-4 w-px bg-white/10 mx-1" />
-              <div className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg bg-white/[0.03]">
+              <div className="h-4 w-px bg-ink/10 mx-1" />
+              <div className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg bg-ink/[0.04]">
                 <div className="w-2 h-2 rounded-full bg-green-400 glow-dot" />
-                <span className="text-xs text-white/50">AI Ready</span>
+                <span className="text-xs text-ink/60">AI Ready</span>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -290,7 +290,7 @@ export function Home() {
                 className="btn-outline text-sm py-2 px-3 hidden sm:flex items-center gap-1.5 disabled:opacity-40"
               >
                 {planning ? (
-                  <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <div className="w-3.5 h-3.5 border-2 border-ink/25 border-t-white rounded-full animate-spin" />
                 ) : (
                   <Sparkles className="w-3.5 h-3.5" />
                 )}
@@ -303,7 +303,7 @@ export function Home() {
               >
                 {generating ? (
                   <>
-                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    <div className="w-4 h-4 border-2 border-ink/25 border-t-white rounded-full animate-spin" />
                     {streamedChars > 0
                       ? `Generating… ${streamedChars.toLocaleString()} chars`
                       : phaseLabel || 'Generating...'}
@@ -318,8 +318,8 @@ export function Home() {
             </div>
           </div>
         </div>
-        <p className="text-center text-xs text-white/30 mt-3">
-          Press <kbd className="px-1.5 py-0.5 rounded bg-white/5 text-white/40">⌘</kbd> + <kbd className="px-1.5 py-0.5 rounded bg-white/5 text-white/40">Enter</kbd> to generate
+        <p className="text-center text-xs text-ink/45 mt-3">
+          Press <kbd className="px-1.5 py-0.5 rounded bg-ink/[0.05] text-ink/55">⌘</kbd> + <kbd className="px-1.5 py-0.5 rounded bg-ink/[0.05] text-ink/55">Enter</kbd> to generate
         </p>
       </div>
 
@@ -336,11 +336,11 @@ export function Home() {
             style={{ animationDelay: `${i * 50}ms` }}
           >
             <div className={cn('w-11 h-11 rounded-xl bg-gradient-to-br flex items-center justify-center mb-3 transition-transform group-hover:scale-110', qs.gradient)}>
-              <qs.icon className="w-5 h-5 text-white" />
+              <qs.icon className="w-5 h-5 text-ink" />
             </div>
-            <h3 className="font-semibold text-white mb-0.5">{qs.label}</h3>
-            <p className="text-xs text-white/40">{qs.desc}</p>
-            <div className="absolute inset-0 bg-gradient-to-t from-nexa-500/0 to-nexa-500/0 group-hover:from-nexa-500/5 transition-all duration-300 pointer-events-none" />
+            <h3 className="font-semibold text-ink mb-0.5">{qs.label}</h3>
+            <p className="text-xs text-ink/55">{qs.desc}</p>
+            <div className="absolute inset-0 bg-gradient-to-t from-lavender/0 to-lavender/0 group-hover:from-lavender/10 transition-all duration-300 pointer-events-none" />
           </button>
         ))}
       </div>
@@ -348,8 +348,8 @@ export function Home() {
       {/* Recent Projects */}
       <div>
         <div className="flex items-center justify-between mb-5">
-          <h2 className="text-xl font-bold text-white">Recent Projects</h2>
-          <button onClick={() => navigate('/projects')} className="text-sm text-nexa-400 hover:text-nexa-300 transition-colors flex items-center gap-1">
+          <h2 className="text-xl font-bold text-ink">Recent Projects</h2>
+          <button onClick={() => navigate('/projects')} className="text-sm text-lavender-ink hover:text-lavender-ink transition-colors flex items-center gap-1">
             View all <ArrowRight className="w-3.5 h-3.5" />
           </button>
         </div>
@@ -361,19 +361,19 @@ export function Home() {
               className="group flex-shrink-0 w-72 glass rounded-2xl overflow-hidden card-hover cursor-pointer"
             >
               <div className={cn('h-36 bg-gradient-to-br relative overflow-hidden', p.previewGradient)}>
-                <div className="absolute inset-0 bg-black/20" />
+                <div className="absolute inset-0 bg-ink/10" />
                 <div className="absolute bottom-3 left-3 right-3">
                   <div className="glass-strong rounded-lg p-2.5">
-                    <div className="h-1.5 w-3/4 bg-white/20 rounded mb-1.5" />
-                    <div className="h-1.5 w-1/2 bg-white/10 rounded" />
+                    <div className="h-1.5 w-3/4 bg-ink/15 rounded mb-1.5" />
+                    <div className="h-1.5 w-1/2 bg-ink/10 rounded" />
                   </div>
                 </div>
                 <div className="absolute top-3 right-3">
                   <span className={cn(
                     'px-2 py-0.5 rounded-full text-[10px] font-medium backdrop-blur-md',
                     p.status === 'live' && 'bg-green-500/20 text-green-300',
-                    p.status === 'building' && 'bg-nexa-500/20 text-nexa-300',
-                    p.status === 'draft' && 'bg-white/10 text-white/60',
+                    p.status === 'building' && 'bg-lavender-soft text-lavender-ink',
+                    p.status === 'draft' && 'bg-ink/10 text-ink/70',
                     p.status === 'error' && 'bg-red-500/20 text-red-300'
                   )}>
                     {p.status}
@@ -384,8 +384,8 @@ export function Home() {
               <div className="p-4">
                 <div className="flex items-start justify-between">
                   <div className="min-w-0 flex-1">
-                    <h3 className="font-semibold text-white truncate">{p.name}</h3>
-                    <p className="text-xs text-white/40 truncate mt-0.5">{p.description}</p>
+                    <h3 className="font-semibold text-ink truncate">{p.name}</h3>
+                    <p className="text-xs text-ink/55 truncate mt-0.5">{p.description}</p>
                   </div>
                   <Dropdown
                     items={[
@@ -416,7 +416,7 @@ export function Home() {
                     ]}
                   />
                 </div>
-                <div className="flex items-center gap-3 mt-3 text-xs text-white/30">
+                <div className="flex items-center gap-3 mt-3 text-xs text-ink/45">
                   <span className="capitalize">{p.type}</span>
                   <span>·</span>
                   <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{formatDate(p.lastModified)}</span>
@@ -431,14 +431,14 @@ export function Home() {
         <div className="p-6">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-10 h-10 rounded-xl gradient-nexa flex items-center justify-center flex-shrink-0">
-              <Sparkles className="w-5 h-5 text-white" />
+              <Sparkles className="w-5 h-5 text-ink" />
             </div>
             <div className="min-w-0">
-              <h2 className="text-lg font-bold text-white">Plano do projeto</h2>
-              <p className="text-sm text-white/40">Arquitetura e design system que a IA vai seguir na geração</p>
+              <h2 className="text-lg font-bold text-ink">Plano do projeto</h2>
+              <p className="text-sm text-ink/55">Arquitetura e design system que a IA vai seguir na geração</p>
             </div>
           </div>
-          <pre className="max-h-[52vh] overflow-y-auto whitespace-pre-wrap break-words text-xs text-white/70 bg-white/[0.02] border border-white/5 rounded-xl p-4 leading-relaxed font-mono">
+          <pre className="max-h-[52vh] overflow-y-auto whitespace-pre-wrap break-words text-xs text-ink/75 bg-ink/[0.03] border border-paper-line rounded-xl p-4 leading-relaxed font-mono">
             {planText || '—'}
           </pre>
           <div className="flex items-center justify-end gap-2 mt-4">

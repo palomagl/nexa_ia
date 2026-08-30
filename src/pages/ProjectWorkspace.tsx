@@ -67,7 +67,7 @@ export function ProjectWorkspace() {
     return (
       <div className="flex items-center justify-center h-full">
         <div className="text-center">
-          <p className="text-white/40 mb-4">Project not found</p>
+          <p className="text-ink/55 mb-4">Project not found</p>
           <button onClick={() => navigate('/projects')} className="btn-primary">Back to Projects</button>
         </div>
       </div>
@@ -116,10 +116,10 @@ export function ProjectWorkspace() {
         />
       ) : (
         <div className="h-full min-h-0 flex flex-col">
-          <div className="h-11 flex-shrink-0 flex items-center justify-end px-2 border-b border-white/[0.06]">
+          <div className="h-11 flex-shrink-0 flex items-center justify-end px-2 border-b border-paper-line">
             <button
               onClick={() => setShowRight(false)}
-              className="p-1.5 rounded-md text-white/40 hover:text-white hover:bg-white/5"
+              className="p-1.5 rounded-md text-ink/55 hover:text-ink hover:bg-ink/[0.05]"
               title="Esconder painel"
             >
               <ChevronRight className="w-4 h-4" />
@@ -134,36 +134,36 @@ export function ProjectWorkspace() {
   );
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden bg-bg-900">
-      <header className="h-14 flex-shrink-0 flex items-center justify-between gap-3 px-3 border-b border-white/[0.06] bg-bg-900">
+    <div className="h-screen flex flex-col overflow-hidden bg-paper">
+      <header className="h-14 flex-shrink-0 flex items-center justify-between gap-3 px-3 border-b border-paper-line bg-paper">
         <div className="flex items-center gap-3 min-w-0">
           <button
             onClick={() => navigate('/')}
-            className="flex items-center gap-2 flex-shrink-0 rounded-lg hover:bg-white/5 px-1.5 py-1 transition-colors"
+            className="flex items-center gap-2 flex-shrink-0 rounded-lg hover:bg-ink/[0.05] px-1.5 py-1 transition-colors"
             title="Voltar"
           >
             <div className="w-7 h-7 rounded-lg gradient-nexa flex items-center justify-center">
-              <Sparkles className="w-3.5 h-3.5 text-white" />
+              <Sparkles className="w-3.5 h-3.5 text-ink" />
             </div>
             <span className="hidden sm:flex items-baseline gap-1">
-              <span className="text-sm font-bold tracking-tight text-white">NEXA</span>
+              <span className="text-sm font-bold tracking-tight text-ink">NEXA</span>
               <span className="text-sm font-bold tracking-tight gradient-text">AI</span>
             </span>
           </button>
 
-          <div className="h-4 w-px bg-white/10 flex-shrink-0" />
+          <div className="h-4 w-px bg-ink/10 flex-shrink-0" />
 
-          <p className="text-sm font-medium text-white truncate max-w-[220px] sm:max-w-xs">
+          <p className="text-sm font-medium text-ink truncate max-w-[220px] sm:max-w-xs">
             {project.name}
           </p>
         </div>
 
-        <div className="flex items-center p-0.5 rounded-lg bg-white/[0.04]">
+        <div className="flex items-center p-0.5 rounded-lg bg-ink/[0.05]">
           <button
             onClick={() => setView('preview')}
             className={cn(
               'px-3 h-8 rounded-md text-xs font-medium flex items-center gap-1.5 transition-colors',
-              view === 'preview' ? 'bg-white/10 text-white' : 'text-white/45 hover:text-white'
+              view === 'preview' ? 'bg-ink/10 text-ink' : 'text-ink/55 hover:text-ink'
             )}
           >
             <Eye className="w-3.5 h-3.5" /> Preview
@@ -172,7 +172,7 @@ export function ProjectWorkspace() {
             onClick={() => setView('code')}
             className={cn(
               'px-3 h-8 rounded-md text-xs font-medium flex items-center gap-1.5 transition-colors',
-              view === 'code' ? 'bg-white/10 text-white' : 'text-white/45 hover:text-white'
+              view === 'code' ? 'bg-ink/10 text-ink' : 'text-ink/55 hover:text-ink'
             )}
           >
             <Code2 className="w-3.5 h-3.5" /> Code
@@ -184,7 +184,7 @@ export function ProjectWorkspace() {
             onClick={() => setShowExplorer(v => !v)}
             className={cn(
               'p-2 rounded-md transition-colors',
-              showExplorer ? 'text-white bg-white/10' : 'text-white/40 hover:text-white hover:bg-white/5'
+              showExplorer ? 'text-ink bg-ink/10' : 'text-ink/55 hover:text-ink hover:bg-ink/[0.05]'
             )}
             title={showExplorer ? 'Esconder Explorer' : 'Abrir Explorer'}
           >
@@ -194,7 +194,7 @@ export function ProjectWorkspace() {
             onClick={openChat}
             className={cn(
               'p-2 rounded-md transition-colors',
-              showRight && rightView === 'chat' ? 'text-white bg-white/10' : 'text-white/40 hover:text-white hover:bg-white/5'
+              showRight && rightView === 'chat' ? 'text-ink bg-ink/10' : 'text-ink/55 hover:text-ink hover:bg-ink/[0.05]'
             )}
             title={showRight && rightView === 'chat' ? 'Esconder AI Assistant' : 'Abrir AI Assistant'}
           >
@@ -208,7 +208,7 @@ export function ProjectWorkspace() {
             }}
             className={cn(
               'p-2 rounded-md transition-colors',
-              showRight && rightView === 'history' ? 'text-white bg-white/10' : 'text-white/40 hover:text-white hover:bg-white/5'
+              showRight && rightView === 'history' ? 'text-ink bg-ink/10' : 'text-ink/55 hover:text-ink hover:bg-ink/[0.05]'
             )}
             title={showRight && rightView === 'history' ? 'Fechar histórico' : 'Histórico'}
           >
@@ -222,7 +222,7 @@ export function ProjectWorkspace() {
           <button
             type="button"
             aria-label="Fechar painel"
-            className="absolute inset-0 z-20 bg-black/40"
+            className="absolute inset-0 z-20 bg-ink/25"
             onClick={() => {
               setShowExplorer(false);
               setShowRight(false);
@@ -233,7 +233,7 @@ export function ProjectWorkspace() {
         {showExplorer && (
           <aside
             className={cn(
-              'flex-shrink-0 border-r border-white/[0.06] bg-bg-900 min-h-0',
+              'flex-shrink-0 border-r border-paper-line bg-paper min-h-0',
               isCompact
                 ? 'absolute inset-y-0 left-0 z-30 w-[240px] shadow-2xl'
                 : 'w-[240px]'
@@ -246,7 +246,7 @@ export function ProjectWorkspace() {
         {!showExplorer && !isCompact && (
           <button
             onClick={() => setShowExplorer(true)}
-            className="flex-shrink-0 w-8 border-r border-white/[0.06] text-white/30 hover:text-white hover:bg-white/[0.03] flex items-center justify-center"
+            className="flex-shrink-0 w-8 border-r border-paper-line text-ink/45 hover:text-ink hover:bg-ink/[0.04] flex items-center justify-center"
             title="Abrir Explorer"
           >
             <ChevronRight className="w-4 h-4" />
@@ -267,7 +267,7 @@ export function ProjectWorkspace() {
                 filename={activeFile.name}
               />
             ) : (
-              <div className="h-full flex items-center justify-center text-sm text-white/35">
+              <div className="h-full flex items-center justify-center text-sm text-ink/50">
                 Selecione um arquivo no Explorer
               </div>
             )}
@@ -277,7 +277,7 @@ export function ProjectWorkspace() {
         {!showRight && !isCompact && (
           <button
             onClick={openChat}
-            className="flex-shrink-0 w-8 border-l border-white/[0.06] text-white/30 hover:text-white hover:bg-white/[0.03] flex items-center justify-center"
+            className="flex-shrink-0 w-8 border-l border-paper-line text-ink/45 hover:text-ink hover:bg-ink/[0.04] flex items-center justify-center"
             title="Abrir AI Assistant"
           >
             <ChevronLeft className="w-4 h-4" />
@@ -287,7 +287,7 @@ export function ProjectWorkspace() {
         {showRight && (
           <aside
             className={cn(
-              'flex-shrink-0 border-l border-white/[0.06] bg-bg-900 min-h-0',
+              'flex-shrink-0 border-l border-paper-line bg-paper min-h-0',
               isCompact
                 ? 'absolute inset-y-0 right-0 z-30 w-[340px] max-w-[90vw] shadow-2xl'
                 : 'w-[340px]'

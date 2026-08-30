@@ -271,16 +271,16 @@ export function AIChat({ projectId, messages, onCollapse }: Props) {
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-white/5">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-paper-line">
         <div className="flex items-center gap-2">
           <div className="w-7 h-7 rounded-lg gradient-nexa flex items-center justify-center">
-            <Bot className="w-4 h-4 text-white" />
+            <Bot className="w-4 h-4 text-ink" />
           </div>
           <div>
-            <span className="text-sm font-semibold text-white">AI Assistant</span>
+            <span className="text-sm font-semibold text-ink">AI Assistant</span>
             <div className="flex items-center gap-1">
               <div className="w-1.5 h-1.5 rounded-full bg-green-400" />
-              <span className="text-[10px] text-white/40">Online</span>
+              <span className="text-[10px] text-ink/55">Online</span>
             </div>
           </div>
         </div>
@@ -288,7 +288,7 @@ export function AIChat({ projectId, messages, onCollapse }: Props) {
           {onCollapse && (
             <button
               onClick={onCollapse}
-              className="p-1.5 rounded-lg text-white/40 hover:text-white hover:bg-white/5"
+              className="p-1.5 rounded-lg text-ink/55 hover:text-ink hover:bg-ink/[0.05]"
               title="Esconder painel"
             >
               <ChevronRight className="w-4 h-4" />
@@ -303,16 +303,16 @@ export function AIChat({ projectId, messages, onCollapse }: Props) {
           <div key={msg.id} className={cn('flex gap-3', msg.role === 'user' && 'flex-row-reverse')}>
             <div className={cn(
               'w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0',
-              msg.role === 'user' ? 'bg-white/5' : 'gradient-nexa'
+              msg.role === 'user' ? 'bg-ink/[0.05]' : 'gradient-nexa'
             )}>
-              {msg.role === 'user' ? <UserIcon className="w-4 h-4 text-white/60" /> : <Bot className="w-4 h-4 text-white" />}
+              {msg.role === 'user' ? <UserIcon className="w-4 h-4 text-ink/70" /> : <Bot className="w-4 h-4 text-ink" />}
             </div>
             <div className={cn('flex-1 min-w-0', msg.role === 'user' && 'flex flex-col items-end')}>
               <div className={cn(
                 'rounded-xl px-3.5 py-2.5 text-sm',
                 msg.role === 'user'
-                  ? 'bg-nexa-500/15 text-white rounded-tr-sm'
-                  : 'glass text-white/80 rounded-tl-sm'
+                  ? 'bg-lavender-soft text-ink rounded-tr-sm'
+                  : 'glass text-ink/80 rounded-tl-sm'
               )}>
                 {msg.content}
               </div>
@@ -321,31 +321,31 @@ export function AIChat({ projectId, messages, onCollapse }: Props) {
                   {msg.actions.map((action, i) => {
                     const Icon = actionIcons[action.type];
                     return (
-                      <div key={i} className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-white/[0.02] border border-white/5 text-xs">
-                        <Icon className="w-3 h-3 text-nexa-400 flex-shrink-0" />
-                        <span className="text-white/70 font-medium">{action.label}</span>
-                        <span className="text-white/30">— {action.detail}</span>
+                      <div key={i} className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-ink/[0.03] border border-paper-line text-xs">
+                        <Icon className="w-3 h-3 text-lavender-ink flex-shrink-0" />
+                        <span className="text-ink/75 font-medium">{action.label}</span>
+                        <span className="text-ink/45">— {action.detail}</span>
                       </div>
                     );
                   })}
                 </div>
               )}
-              <span className="text-[10px] text-white/20 mt-1">{formatDate(msg.timestamp)}</span>
+              <span className="text-[10px] text-ink/35 mt-1">{formatDate(msg.timestamp)}</span>
             </div>
           </div>
         ))}
         {thinking && (
           <div className="flex gap-3">
             <div className="w-7 h-7 rounded-lg gradient-nexa flex items-center justify-center flex-shrink-0">
-              <Bot className="w-4 h-4 text-white" />
+              <Bot className="w-4 h-4 text-ink" />
             </div>
             <div className="glass rounded-xl px-4 py-3 flex items-center gap-2">
               <div className="flex gap-1">
-                <div className="w-2 h-2 rounded-full bg-nexa-400 animate-bounce" style={{ animationDelay: '0ms' }} />
-                <div className="w-2 h-2 rounded-full bg-nexa-400 animate-bounce" style={{ animationDelay: '150ms' }} />
-                <div className="w-2 h-2 rounded-full bg-nexa-400 animate-bounce" style={{ animationDelay: '300ms' }} />
+                <div className="w-2 h-2 rounded-full bg-lavender animate-bounce" style={{ animationDelay: '0ms' }} />
+                <div className="w-2 h-2 rounded-full bg-lavender animate-bounce" style={{ animationDelay: '150ms' }} />
+                <div className="w-2 h-2 rounded-full bg-lavender animate-bounce" style={{ animationDelay: '300ms' }} />
               </div>
-              <span className="text-xs text-white/40">
+              <span className="text-xs text-ink/55">
                 {streamedChars > 0 ? `Writing… ${streamedChars.toLocaleString()} chars` : 'AI is thinking...'}
               </span>
             </div>
@@ -355,15 +355,15 @@ export function AIChat({ projectId, messages, onCollapse }: Props) {
       </div>
 
       {/* Input */}
-      <div className="p-3 border-t border-white/5">
+      <div className="p-3 border-t border-paper-line">
         <div className="glass rounded-xl p-2">
           {attachedImage && (
-            <div className="flex items-center gap-2 mb-1.5 px-2 py-1.5 rounded-lg bg-white/[0.04] border border-white/10 w-fit max-w-full">
-              <ImageIcon className="w-3.5 h-3.5 text-nexa-400 flex-shrink-0" />
-              <span className="text-xs text-white/70 truncate">{attachedImage.name}</span>
+            <div className="flex items-center gap-2 mb-1.5 px-2 py-1.5 rounded-lg bg-ink/[0.05] border border-paper-line2 w-fit max-w-full">
+              <ImageIcon className="w-3.5 h-3.5 text-lavender-ink flex-shrink-0" />
+              <span className="text-xs text-ink/75 truncate">{attachedImage.name}</span>
               <button
                 onClick={() => setAttachedImage(null)}
-                className="p-0.5 rounded text-white/40 hover:text-white hover:bg-white/10 flex-shrink-0"
+                className="p-0.5 rounded text-ink/55 hover:text-ink hover:bg-ink/10 flex-shrink-0"
                 title="Remover anexo"
               >
                 <X className="w-3.5 h-3.5" />
@@ -376,7 +376,7 @@ export function AIChat({ projectId, messages, onCollapse }: Props) {
             onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
             placeholder="Ask AI to modify your project..."
             rows={2}
-            className="w-full bg-transparent px-2 py-1 text-sm text-white placeholder:text-white/30 focus:outline-none resize-none"
+            className="w-full bg-transparent px-2 py-1 text-sm text-ink placeholder:text-ink/45 focus:outline-none resize-none"
           />
           <div className="flex items-center justify-between mt-1">
             <div className="flex items-center gap-1">
@@ -389,7 +389,7 @@ export function AIChat({ projectId, messages, onCollapse }: Props) {
               />
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="p-1.5 rounded-lg text-white/40 hover:text-white hover:bg-white/5 transition-all"
+                className="p-1.5 rounded-lg text-ink/55 hover:text-ink hover:bg-ink/[0.05] transition-all"
                 title="Anexar imagem"
               >
                 <Paperclip className="w-4 h-4" />
@@ -398,14 +398,14 @@ export function AIChat({ projectId, messages, onCollapse }: Props) {
                 onClick={toggleListening}
                 className={cn(
                   'p-1.5 rounded-lg transition-all',
-                  listening ? 'text-red-400 bg-red-500/10 animate-pulse' : 'text-white/40 hover:text-white hover:bg-white/5'
+                  listening ? 'text-red-400 bg-red-500/10 animate-pulse' : 'text-ink/55 hover:text-ink hover:bg-ink/[0.05]'
                 )}
                 title={listening ? 'Parar ditado' : 'Ditar por voz'}
               >
                 <Mic className="w-4 h-4" />
               </button>
-              <div className="flex items-center gap-1 px-1.5 py-1 rounded-lg text-white/40">
-                <Sparkles className="w-3.5 h-3.5 text-nexa-400" />
+              <div className="flex items-center gap-1 px-1.5 py-1 rounded-lg text-ink/55">
+                <Sparkles className="w-3.5 h-3.5 text-lavender-ink" />
                 <span className="text-xs">AI</span>
               </div>
             </div>

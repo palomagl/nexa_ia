@@ -14,13 +14,13 @@ export const currentWorkspace = {
 };
 
 const gradients = [
-  'from-nexa-600 to-violet-500',
-  'from-violet-600 to-nexa-400',
-  'from-nexa-500 to-violet-600',
-  'from-violet-500 to-nexa-600',
-  'from-nexa-700 to-violet-500',
-  'from-violet-400 to-nexa-500',
-  'from-nexa-500 to-violet-400',
+  'from-lavender to-lavender-deep',
+  'from-sage to-sage-deep',
+  'from-rose to-rose-deep',
+  'from-lavender-deep to-lavender',
+  'from-sage-deep to-sage',
+  'from-rose-deep to-rose',
+  'from-lavender to-sage',
 ];
 
 // Arquivos de demonstração no MESMO formato que o gerador de verdade

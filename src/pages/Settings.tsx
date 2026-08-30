@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { User, Building2, Sparkles, Github, Palette } from 'lucide-react';
+import { User, Building2, Sparkles, Github } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useStore } from '../store/useStore';
 
-type SettingsTab = 'account' | 'workspace' | 'ai' | 'github' | 'appearance';
+type SettingsTab = 'account' | 'workspace' | 'ai' | 'github';
 
 export function Settings() {
-  const { accentColor, setAccentColor, user, updateUser, workspace, updateWorkspace, addToast } = useStore();
+  const { user, updateUser, workspace, updateWorkspace, addToast } = useStore();
   const [tab, setTab] = useState<SettingsTab>('account');
   const [nameDraft, setNameDraft] = useState(user.name);
   const [emailDraft, setEmailDraft] = useState(user.email);
@@ -17,12 +17,11 @@ export function Settings() {
     { id: 'workspace', label: 'Workspace', icon: Building2 },
     { id: 'ai', label: 'AI', icon: Sparkles },
     { id: 'github', label: 'GitHub', icon: Github },
-    { id: 'appearance', label: 'Appearance', icon: Palette },
   ];
 
   return (
     <div className="max-w-5xl mx-auto px-4 lg:px-8 py-8">
-      <h1 className="text-2xl font-bold text-white mb-6">Settings</h1>
+      <h1 className="text-2xl font-bold text-ink mb-6">Settings</h1>
 
       <div className="flex flex-col lg:flex-row gap-6">
         {/* Tabs sidebar */}
@@ -34,7 +33,7 @@ export function Settings() {
                 onClick={() => setTab(t.id)}
                 className={cn(
                   'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all whitespace-nowrap',
-                  tab === t.id ? 'bg-nexa-500/15 text-nexa-300 font-medium' : 'text-white/50 hover:text-white hover:bg-white/5'
+                  tab === t.id ? 'bg-lavender-soft text-lavender-ink font-medium' : 'text-ink/60 hover:text-ink hover:bg-ink/[0.05]'
                 )}
               >
                 <t.icon className="w-4 h-4 flex-shrink-0" />
@@ -49,26 +48,26 @@ export function Settings() {
           {tab === 'account' && (
             <div className="space-y-6">
               <div>
-                <h2 className="text-lg font-semibold text-white mb-1">Account</h2>
-                <p className="text-sm text-white/40">Manage your account information</p>
+                <h2 className="text-lg font-semibold text-ink mb-1">Account</h2>
+                <p className="text-sm text-ink/55">Manage your account information</p>
               </div>
               <div className="flex items-center gap-4">
-                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-nexa-600 to-violet-500 flex items-center justify-center text-xl font-bold text-white">
+                <div className="w-16 h-16 rounded-2xl bg-lavender flex items-center justify-center text-xl font-bold text-ink">
                   {user.name.split(' ').map(n => n[0]).join('')}
                 </div>
                 <div>
-                  <p className="font-medium text-white">{user.name}</p>
-                  <p className="text-sm text-white/40">{user.email}</p>
-                  <button onClick={() => addToast({ type: 'info', title: 'Avatar upload coming soon' })} className="text-xs text-nexa-400 mt-1 hover:text-nexa-300">Change avatar</button>
+                  <p className="font-medium text-ink">{user.name}</p>
+                  <p className="text-sm text-ink/55">{user.email}</p>
+                  <button onClick={() => addToast({ type: 'info', title: 'Avatar upload coming soon' })} className="text-xs text-lavender-ink mt-1 hover:text-lavender-ink">Change avatar</button>
                 </div>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="text-xs text-white/40 mb-1.5 block">Full name</label>
+                  <label className="text-xs text-ink/55 mb-1.5 block">Full name</label>
                   <input value={nameDraft} onChange={e => setNameDraft(e.target.value)} className="input-base w-full text-sm" />
                 </div>
                 <div>
-                  <label className="text-xs text-white/40 mb-1.5 block">Email</label>
+                  <label className="text-xs text-ink/55 mb-1.5 block">Email</label>
                   <input value={emailDraft} onChange={e => setEmailDraft(e.target.value)} className="input-base w-full text-sm" />
                 </div>
               </div>
@@ -87,11 +86,11 @@ export function Settings() {
           {tab === 'workspace' && (
             <div className="space-y-6">
               <div>
-                <h2 className="text-lg font-semibold text-white mb-1">Workspace</h2>
-                <p className="text-sm text-white/40">Manage your workspace settings</p>
+                <h2 className="text-lg font-semibold text-ink mb-1">Workspace</h2>
+                <p className="text-sm text-ink/55">Manage your workspace settings</p>
               </div>
               <div>
-                <label className="text-xs text-white/40 mb-1.5 block">Workspace name</label>
+                <label className="text-xs text-ink/55 mb-1.5 block">Workspace name</label>
                 <input value={workspaceNameDraft} onChange={e => setWorkspaceNameDraft(e.target.value)} className="input-base w-full text-sm" />
               </div>
               <button
@@ -109,28 +108,28 @@ export function Settings() {
           {tab === 'ai' && (
             <div className="space-y-6">
               <div>
-                <h2 className="text-lg font-semibold text-white mb-1">AI Configuration</h2>
-                <p className="text-sm text-white/40">Como a geração de código funciona neste projeto</p>
+                <h2 className="text-lg font-semibold text-ink mb-1">AI Configuration</h2>
+                <p className="text-sm text-ink/55">Como a geração de código funciona neste projeto</p>
               </div>
-              <div className="p-4 rounded-xl bg-white/[0.02] border border-white/5 space-y-3">
-                <p className="text-sm text-white/70">
+              <div className="p-4 rounded-xl bg-ink/[0.03] border border-paper-line space-y-3">
+                <p className="text-sm text-ink/75">
                   O Nexa AI tenta uma cadeia de provedores em ordem — se um estiver
                   indisponível ou sem cota, cai pro próximo automaticamente:
                 </p>
                 <div className="flex items-center gap-2 flex-wrap text-xs">
                   {['Gemini', 'Groq', 'Mistral'].map((p, i, arr) => (
                     <span key={p} className="flex items-center gap-2">
-                      <span className="px-2.5 py-1 rounded-lg bg-nexa-500/10 text-nexa-300 font-medium">{p}</span>
-                      {i < arr.length - 1 && <span className="text-white/20">→</span>}
+                      <span className="px-2.5 py-1 rounded-lg bg-lavender-soft/70 text-lavender-ink font-medium">{p}</span>
+                      {i < arr.length - 1 && <span className="text-ink/35">→</span>}
                     </span>
                   ))}
                 </div>
-                <p className="text-xs text-white/40">
-                  A ordem e as chaves de cada provedor são definidas em <code className="text-white/60">server/.env</code>.
+                <p className="text-xs text-ink/55">
+                  A ordem e as chaves de cada provedor são definidas em <code className="text-ink/70">server/.env</code>.
                 </p>
               </div>
-              <div className="p-4 rounded-xl bg-white/[0.02] border border-white/5">
-                <p className="text-sm text-white/70">
+              <div className="p-4 rounded-xl bg-ink/[0.03] border border-paper-line">
+                <p className="text-sm text-ink/75">
                   ✓ Correção automática de sintaxe está ativa — se um arquivo gerado
                   não compilar, o sistema tenta corrigir antes de te entregar.
                 </p>
@@ -141,16 +140,16 @@ export function Settings() {
           {tab === 'github' && (
             <div className="space-y-6">
               <div>
-                <h2 className="text-lg font-semibold text-white mb-1">GitHub Integration</h2>
-                <p className="text-sm text-white/40">Connect your GitHub account</p>
+                <h2 className="text-lg font-semibold text-ink mb-1">GitHub Integration</h2>
+                <p className="text-sm text-ink/55">Connect your GitHub account</p>
               </div>
-              <div className="flex items-center gap-3 p-4 rounded-xl bg-white/[0.02] border border-white/5">
-                <div className="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center">
-                  <Github className="w-5 h-5 text-white" />
+              <div className="flex items-center gap-3 p-4 rounded-xl bg-ink/[0.03] border border-paper-line">
+                <div className="w-10 h-10 rounded-lg bg-ink/[0.05] flex items-center justify-center">
+                  <Github className="w-5 h-5 text-ink" />
                 </div>
                 <div className="flex-1">
-                  <p className="text-sm font-medium text-white">Nenhuma conta conectada</p>
-                  <p className="text-xs text-white/40">Conecte pra permitir push direto de um projeto pro GitHub</p>
+                  <p className="text-sm font-medium text-ink">Nenhuma conta conectada</p>
+                  <p className="text-xs text-ink/55">Conecte pra permitir push direto de um projeto pro GitHub</p>
                 </div>
                 <button
                   onClick={() => addToast({ type: 'info', title: 'Em breve', message: 'A integração com GitHub ainda está em desenvolvimento.' })}
@@ -158,40 +157,6 @@ export function Settings() {
                 >
                   Connect
                 </button>
-              </div>
-            </div>
-          )}
-
-          {tab === 'appearance' && (
-            <div className="space-y-6">
-              <div>
-                <h2 className="text-lg font-semibold text-white mb-1">Appearance</h2>
-                <p className="text-sm text-white/40">Customize the accent color</p>
-              </div>
-              <div>
-                <label className="text-xs text-white/40 mb-2 block">Accent color</label>
-                <div className="flex gap-3">
-                  {[
-                    { id: 'roxo' as const, swatch: '#9333ea', label: 'Roxo Nexa' },
-                    { id: 'violeta' as const, swatch: '#8b5cf6', label: 'Violeta' },
-                    { id: 'ameixa' as const, swatch: '#a855f7', label: 'Ameixa' },
-                    { id: 'profundo' as const, swatch: '#6366f1', label: 'Roxo Profundo' },
-                  ].map(opt => (
-                    <button
-                      key={opt.id}
-                      onClick={() => {
-                        setAccentColor(opt.id);
-                        addToast({ type: 'success', title: `Cor alterada para ${opt.label}` });
-                      }}
-                      title={opt.label}
-                      className={cn(
-                        'w-10 h-10 rounded-xl border-2 transition-all',
-                        accentColor === opt.id ? 'border-white scale-110' : 'border-transparent hover:scale-105'
-                      )}
-                      style={{ background: opt.swatch }}
-                    />
-                  ))}
-                </div>
               </div>
             </div>
           )}

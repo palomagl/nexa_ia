@@ -2,8 +2,6 @@ export type ProjectType = 'website' | 'app' | 'dashboard' | 'prototype';
 export type ProjectStatus = 'draft' | 'building' | 'live' | 'error';
 export type PreviewDevice = 'desktop' | 'tablet' | 'mobile';
 export type FileNodeType = 'file' | 'folder';
-// Tons de roxo trocáveis — ver src/index.css ([data-accent]) e tailwind.config.js
-export type AccentColor = 'roxo' | 'violeta' | 'ameixa' | 'profundo';
 
 export interface User {
   id: string;

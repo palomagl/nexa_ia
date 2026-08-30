@@ -50,12 +50,12 @@ export function Help() {
   return (
     <div className="max-w-3xl mx-auto px-4 lg:px-8 py-10">
       <div className="text-center mb-10">
-        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-nexa-500/10 border border-nexa-500/20 mb-4">
-          <Sparkles className="w-3.5 h-3.5 text-nexa-400" />
-          <span className="text-xs font-medium text-nexa-300">Central de Ajuda</span>
+        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-lavender-soft/70 border border-lavender-deep/30 mb-4">
+          <Sparkles className="w-3.5 h-3.5 text-lavender-ink" />
+          <span className="text-xs font-medium text-lavender-ink">Central de Ajuda</span>
         </div>
-        <h1 className="text-2xl lg:text-3xl font-bold text-white mb-2">Como o Nexa AI funciona</h1>
-        <p className="text-white/50">
+        <h1 className="text-2xl lg:text-3xl font-bold text-ink mb-2">Como o Nexa AI funciona</h1>
+        <p className="text-ink/60">
           Você descreve o que quer, a IA cria o site/app e mostra funcionando na hora — e você refina
           conversando, sem precisar escrever código.
         </p>
@@ -65,15 +65,15 @@ export function Help() {
         {steps.map(s => (
           <div key={s.title} className="glass rounded-2xl p-5">
             <div className="w-9 h-9 rounded-xl gradient-nexa flex items-center justify-center mb-3">
-              <s.icon className="w-4 h-4 text-white" />
+              <s.icon className="w-4 h-4 text-ink" />
             </div>
-            <h3 className="font-semibold text-white mb-1.5">{s.title}</h3>
-            <p className="text-sm text-white/50 leading-relaxed">{s.desc}</p>
+            <h3 className="font-semibold text-ink mb-1.5">{s.title}</h3>
+            <p className="text-sm text-ink/60 leading-relaxed">{s.desc}</p>
           </div>
         ))}
       </div>
 
-      <h2 className="text-lg font-bold text-white mb-4">Perguntas frequentes</h2>
+      <h2 className="text-lg font-bold text-ink mb-4">Perguntas frequentes</h2>
       <div className="space-y-2">
         {faqs.map((f, i) => (
           <div key={f.q} className="glass rounded-xl overflow-hidden">
@@ -81,19 +81,19 @@ export function Help() {
               onClick={() => setOpenFaq(openFaq === i ? null : i)}
               className="w-full flex items-center justify-between gap-3 px-4 py-3.5 text-left"
             >
-              <span className="text-sm font-medium text-white">{f.q}</span>
-              <ChevronDown className={cn('w-4 h-4 text-white/40 flex-shrink-0 transition-transform', openFaq === i && 'rotate-180')} />
+              <span className="text-sm font-medium text-ink">{f.q}</span>
+              <ChevronDown className={cn('w-4 h-4 text-ink/55 flex-shrink-0 transition-transform', openFaq === i && 'rotate-180')} />
             </button>
             {openFaq === i && (
-              <div className="px-4 pb-4 text-sm text-white/50 leading-relaxed">{f.a}</div>
+              <div className="px-4 pb-4 text-sm text-ink/60 leading-relaxed">{f.a}</div>
             )}
           </div>
         ))}
       </div>
 
       <div className="mt-10 glass rounded-2xl p-5 flex items-center gap-3">
-        <ImageIcon className="w-5 h-5 text-nexa-400 flex-shrink-0" />
-        <p className="text-sm text-white/60">
+        <ImageIcon className="w-5 h-5 text-lavender-ink flex-shrink-0" />
+        <p className="text-sm text-ink/70">
           Dica: quer usar uma foto ou logo sua no site? Anexe pelo ícone do clipe no chat do projeto e peça
           pra IA usá-la (ex.: "usa essa imagem como logo no cabeçalho").
         </p>

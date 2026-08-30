@@ -38,15 +38,15 @@ export function CodeEditor({ content, language, filename }: Props) {
   const lang = language || ext || 'text';
 
   return (
-    <div className="h-full flex flex-col bg-bg-900">
+    <div className="h-full flex flex-col bg-paper">
       {/* Tab bar */}
-      <div className="flex items-center justify-between px-3 py-0 border-b border-white/5 bg-bg-850">
+      <div className="flex items-center justify-between px-3 py-0 border-b border-paper-line bg-paper">
         <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide">
-          <div className="flex items-center gap-2 px-3 py-2 text-xs font-medium text-white bg-bg-800 border-t-2 border-nexa-500 cursor-pointer whitespace-nowrap">
+          <div className="flex items-center gap-2 px-3 py-2 text-xs font-medium text-ink bg-paper-card border-t-2 border-lavender-deep cursor-pointer whitespace-nowrap">
             {filename}
           </div>
         </div>
-        <div className="flex items-center gap-1 text-xs text-white/40 px-2">
+        <div className="flex items-center gap-1 text-xs text-ink/55 px-2">
           <span className="uppercase">{lang}</span>
           <span>·</span>
           <span>UTF-8</span>
@@ -60,7 +60,7 @@ export function CodeEditor({ content, language, filename }: Props) {
         {/* Line numbers */}
         <div
           ref={lineNumbersRef}
-          className="flex-shrink-0 py-3 px-3 text-right text-xs text-white/20 font-mono select-none overflow-hidden bg-bg-850"
+          className="flex-shrink-0 py-3 px-3 text-right text-xs text-ink/35 font-mono select-none overflow-hidden bg-paper"
           style={{ minWidth: '48px' }}
         >
           {lines.map((_, i) => (
@@ -76,13 +76,13 @@ export function CodeEditor({ content, language, filename }: Props) {
           onScroll={handleScroll}
           onKeyDown={handleKeyDown}
           spellCheck={false}
-          className="flex-1 py-3 px-4 bg-transparent text-sm text-white/90 font-mono leading-6 resize-none focus:outline-none whitespace-pre overflow-auto"
+          className="flex-1 py-3 px-4 bg-transparent text-sm text-ink font-mono leading-6 resize-none focus:outline-none whitespace-pre overflow-auto"
           style={{ tabSize: 2 }}
         />
       </div>
 
       {/* Status bar */}
-      <div className="flex items-center justify-between px-4 py-1.5 border-t border-white/5 bg-bg-850 text-xs text-white/30">
+      <div className="flex items-center justify-between px-4 py-1.5 border-t border-paper-line bg-paper text-xs text-ink/45">
         <div className="flex items-center gap-3">
           <span>Ln {lines.length}, Col 1</span>
           <span>Spaces: 2</span>

@@ -1,28 +1,12 @@
 import { create } from 'zustand';
 import { nanoid } from 'nanoid';
-import type { Project, Toast, ChatMessage, FileNode, Version, ProjectType, AccentColor, User, Workspace } from '../types';
+import type { Project, Toast, ChatMessage, FileNode, Version, ProjectType, User, Workspace } from '../types';
 import { mockProjects, currentUser, currentWorkspace } from '../data/mockData';
 import { buildFileNodes, upsertFileByPath, removeFileByPath, type GeneratedFile } from '../lib/fileTree';
-
-const ACCENT_STORAGE_KEY = 'nexa-accent-color';
-
-function getStoredAccentColor(): AccentColor {
-  if (typeof window === 'undefined') return 'roxo';
-  try {
-    const stored = window.localStorage.getItem(ACCENT_STORAGE_KEY);
-    if (stored === 'roxo' || stored === 'violeta' || stored === 'ameixa' || stored === 'profundo') return stored;
-  } catch {
-    // localStorage indisponível (ex.: modo privado) — usa o padrão
-  }
-  return 'roxo';
-}
 
 interface AppState {
   sidebarCollapsed: boolean;
   toggleSidebar: () => void;
-
-  accentColor: AccentColor;
-  setAccentColor: (color: AccentColor) => void;
 
   user: User;
   updateUser: (patch: Partial<Pick<User, 'name' | 'email'>>) => void;
@@ -66,16 +50,6 @@ export const useStore = create<AppState>((set, get) => ({
   sidebarCollapsed: false,
   toggleSidebar: () => set(s => ({ sidebarCollapsed: !s.sidebarCollapsed })),
 
-  accentColor: getStoredAccentColor(),
-  setAccentColor: color => {
-    try {
-      window.localStorage.setItem(ACCENT_STORAGE_KEY, color);
-    } catch {
-      // localStorage indisponível — a cor ainda muda nesta sessão
-    }
-    set({ accentColor: color });
-  },
-
   user: currentUser,
   updateUser: patch => set(s => ({ user: { ...s.user, ...patch } })),
 
@@ -107,7 +81,7 @@ export const useStore = create<AppState>((set, get) => ({
       createdAt: now,
       starred: false,
       shared: false,
-      previewGradient: 'from-nexa-600 to-violet-500',
+      previewGradient: 'from-lavender to-lavender-deep',
       prompt,
       files,
       chat: [

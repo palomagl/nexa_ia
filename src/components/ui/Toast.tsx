@@ -14,18 +14,18 @@ export function ToastContainer() {
             'glass-strong rounded-xl p-4 shadow-2xl animate-slide-up flex items-start gap-3',
             t.type === 'success' && 'border-green-500/30',
             t.type === 'error' && 'border-red-500/30',
-            t.type === 'loading' && 'border-nexa-500/30'
+            t.type === 'loading' && 'border-lavender-deep/40'
           )}
         >
           {t.type === 'success' && <CheckCircle2 className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />}
           {t.type === 'error' && <XCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />}
-          {t.type === 'info' && <Info className="w-5 h-5 text-nexa-400 flex-shrink-0 mt-0.5" />}
-          {t.type === 'loading' && <Loader2 className="w-5 h-5 text-nexa-400 flex-shrink-0 mt-0.5 animate-spin" />}
+          {t.type === 'info' && <Info className="w-5 h-5 text-lavender-ink flex-shrink-0 mt-0.5" />}
+          {t.type === 'loading' && <Loader2 className="w-5 h-5 text-lavender-ink flex-shrink-0 mt-0.5 animate-spin" />}
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-white">{t.title}</p>
-            {t.message && <p className="text-xs text-white/50 mt-0.5">{t.message}</p>}
+            <p className="text-sm font-medium text-ink">{t.title}</p>
+            {t.message && <p className="text-xs text-ink/60 mt-0.5">{t.message}</p>}
           </div>
-          <button onClick={() => removeToast(t.id)} className="text-white/30 hover:text-white">
+          <button onClick={() => removeToast(t.id)} className="text-ink/45 hover:text-ink">
             <X className="w-4 h-4" />
           </button>
         </div>

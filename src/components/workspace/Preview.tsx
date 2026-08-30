@@ -61,7 +61,7 @@ export function Preview({ files, projectName }: Props) {
 
   return (
     <div className="h-full flex flex-col">
-      <div className="flex items-center justify-between px-3 py-2 border-b border-white/5">
+      <div className="flex items-center justify-between px-3 py-2 border-b border-paper-line">
         <div className="flex items-center gap-1">
           {devices.map((d) => {
             const Icon = d.icon;
@@ -73,8 +73,8 @@ export function Preview({ files, projectName }: Props) {
                 className={cn(
                   'p-2 rounded-lg transition-all',
                   device === d.id
-                    ? 'bg-nexa-500/15 text-nexa-300'
-                    : 'text-white/40 hover:text-white hover:bg-white/5'
+                    ? 'bg-lavender-soft text-lavender-ink'
+                    : 'text-ink/55 hover:text-ink hover:bg-ink/[0.05]'
                 )}
                 title={d.label}
               >
@@ -85,7 +85,7 @@ export function Preview({ files, projectName }: Props) {
         </div>
 
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/[0.02] border border-white/5 text-xs text-white/40">
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-ink/[0.03] border border-paper-line text-xs text-ink/55">
             <div className="w-1.5 h-1.5 rounded-full bg-green-400" />
             localhost:5173/
             {projectName.toLowerCase().replace(/\s+/g, '-')}
@@ -93,7 +93,7 @@ export function Preview({ files, projectName }: Props) {
 
           <button
             onClick={() => setRefreshKey((k) => k + 1)}
-            className="p-2 rounded-lg text-white/40 hover:text-white hover:bg-white/5 transition-all"
+            className="p-2 rounded-lg text-ink/55 hover:text-ink hover:bg-ink/[0.05] transition-all"
             title="Refresh"
           >
             <RefreshCw className="w-4 h-4" />
@@ -102,7 +102,7 @@ export function Preview({ files, projectName }: Props) {
           <button
             onClick={handleDownload}
             disabled={downloading}
-            className="p-2 rounded-lg text-white/40 hover:text-white hover:bg-white/5 transition-all disabled:opacity-40"
+            className="p-2 rounded-lg text-ink/55 hover:text-ink hover:bg-ink/[0.05] transition-all disabled:opacity-40"
             title="Baixar projeto (.zip)"
           >
             <Download className={cn('w-4 h-4', downloading && 'animate-pulse')} />
@@ -117,7 +117,7 @@ export function Preview({ files, projectName }: Props) {
                 URL.revokeObjectURL(url);
               }, 1000);
             }}
-            className="p-2 rounded-lg text-white/40 hover:text-white hover:bg-white/5 transition-all"
+            className="p-2 rounded-lg text-ink/55 hover:text-ink hover:bg-ink/[0.05] transition-all"
             title="Open source"
           >
             <ExternalLink className="w-4 h-4" />
@@ -125,11 +125,11 @@ export function Preview({ files, projectName }: Props) {
         </div>
       </div>
 
-      <div className="flex-1 bg-bg-900 overflow-auto flex items-start justify-center p-4">
+      <div className="flex-1 bg-paper overflow-auto flex items-start justify-center p-4">
         <div
           className={cn(
-            'bg-white rounded-lg shadow-2xl overflow-hidden transition-all duration-300',
-            device !== 'desktop' && 'border border-white/10'
+            'bg-paper-card rounded-lg shadow-2xl overflow-hidden transition-all duration-300',
+            device !== 'desktop' && 'border border-paper-line2'
           )}
           style={{
             width: sizes[device].width,
