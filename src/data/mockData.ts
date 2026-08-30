@@ -23,16 +23,28 @@ const gradients = [
   'from-nexa-500 to-violet-400',
 ];
 
+// Arquivos de demonstração no MESMO formato que o gerador de verdade
+// produz — sem import/export, sem main.tsx com createRoot — pra o Preview
+// renderizar o mock exatamente como renderiza um projeto real.
 function makeFiles(projectName: string): FileNode[] {
   return [
-    { id: 'f1', name: 'src', type: 'folder', parentId: null, children: ['f2', 'f3', 'f4'] },
-    { id: 'f2', name: 'App.tsx', type: 'file', parentId: 'f1', language: 'tsx', content: `import React from 'react';\n\nexport default function App() {\n  return (\n    <div className=\"min-h-screen bg-gray-900 text-white\">\n      <h1>${projectName}</h1>\n    </div>\n  );\n}` },
-    { id: 'f3', name: 'index.css', type: 'file', parentId: 'f1', language: 'css', content: `body {\n  font-family: 'Inter', sans-serif;\n}` },
-    { id: 'f4', name: 'main.tsx', type: 'file', parentId: 'f1', language: 'tsx', content: `import ReactDOM from 'react-dom/client';\nimport App from './App';\n\nReactDOM.createRoot(document.getElementById('root')!).render(<App />);` },
-    { id: 'f5', name: 'components', type: 'folder', parentId: null, children: ['f6'] },
-    { id: 'f6', name: 'Header.tsx', type: 'file', parentId: 'f5', language: 'tsx', content: `export function Header() {\n  return <header>NEXA</header>;\n}` },
-    { id: 'f7', name: 'package.json', type: 'file', parentId: null, language: 'json', content: `{\n  "name": "${projectName.toLowerCase().replace(/\s+/g, '-')}",\n  "version": "1.0.0"\n}` },
-    { id: 'f8', name: 'index.html', type: 'file', parentId: null, language: 'html', content: `<!doctype html><html><head></head><body></body></html>` },
+    {
+      id: 'f1',
+      name: 'App.tsx',
+      type: 'file',
+      parentId: null,
+      language: 'tsx',
+      content: `function App() {\n  return (\n    <div className="min-h-screen bg-slate-950 text-white">\n      <Header title="${projectName}" />\n      <main className="max-w-3xl mx-auto px-6 py-16">\n        <h1 className="text-3xl font-bold">${projectName}</h1>\n        <p className="mt-3 text-white/60">Projeto de demonstração gerado pelo Nexa AI.</p>\n      </main>\n    </div>\n  );\n}`,
+    },
+    { id: 'f2', name: 'components', type: 'folder', parentId: null, children: ['f3'] },
+    {
+      id: 'f3',
+      name: 'Header.tsx',
+      type: 'file',
+      parentId: 'f2',
+      language: 'tsx',
+      content: `function Header({ title }) {\n  return (\n    <header className="border-b border-white/10 px-6 py-4 text-sm font-semibold tracking-tight">\n      {title}\n    </header>\n  );\n}`,
+    },
   ];
 }
 

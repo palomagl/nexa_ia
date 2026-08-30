@@ -86,7 +86,7 @@ export const useStore = create<AppState>((set, get) => ({
   createProject: (prompt, type = 'app', generatedFiles, explanation) => {
     const id = nanoid();
     const now = new Date().toISOString();
-    const name = prompt.slice(0, 40) + (prompt.length > 40 ? '...' : 'Project');
+    const name = prompt.length > 40 ? prompt.slice(0, 40).trimEnd() + '…' : prompt;
 
     // Usa os arquivos gerados pela IA (pode ser só App.tsx, ou App.tsx +
     // vários components/*.tsx) ou um fallback de uma página se não vier nada.

@@ -33,7 +33,21 @@ export function ProjectWorkspace() {
   const [isCompact, setIsCompact] = useState(
     () => typeof window !== 'undefined' && window.innerWidth < 1024
   );
-  const [activeFileId, setActiveFileId] = useState<string | null>('f2');
+  const [activeFileId, setActiveFileId] = useState<string | null>(null);
+
+  // Seleciona um arquivo real quando o projeto carrega (ou troca). Antes o
+  // padrão era o id 'f2' de um projeto mock — que não existe nos projetos
+  // gerados, deixando a aba Code vazia.
+  useEffect(() => {
+    if (!project) return;
+    setActiveFileId(prev => {
+      if (prev && project.files.some(f => f.id === prev && f.type === 'file')) return prev;
+      const app = project.files.find(f => f.type === 'file' && f.name === 'App.tsx');
+      const firstFile = project.files.find(f => f.type === 'file');
+      return (app || firstFile)?.id ?? null;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
 
   useEffect(() => {
     const mq = window.matchMedia('(max-width: 1023px)');

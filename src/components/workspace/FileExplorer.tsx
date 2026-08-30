@@ -17,7 +17,11 @@ interface Props {
 
 export function FileExplorer({ projectId, files, activeFileId, onSelectFile, onCollapse }: Props) {
   const { addFile, deleteFile } = useStore();
-  const [expanded, setExpanded] = useState<Set<string>>(new Set(['f1', 'f5']));
+  // Abre todas as pastas do projeto por padrão. Antes eram os ids 'f1'/'f5'
+  // de um projeto mock, então projetos gerados abriam tudo fechado.
+  const [expanded, setExpanded] = useState<Set<string>>(
+    () => new Set(files.filter(f => f.type === 'folder').map(f => f.id))
+  );
   const [showRootMenu, setShowRootMenu] = useState(false);
 
   const rootNodes = files.filter(f => f.parentId === null);
