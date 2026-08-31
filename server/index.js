@@ -111,9 +111,10 @@ const BUILDER_MODEL = process.env.BUILDER_MODEL || GEMINI_MODEL;
 const REVIEWER_MODEL = process.env.REVIEWER_MODEL || GEMINI_MODEL;
 
 // Passo de auto-revisão depois de montar o app (1 rodada). Melhora o
-// acabamento visual ao custo de +1 chamada de modelo. Desligue com
-// GENERATE_REVIEW_PASS=false se estiver batendo em limite de cota.
-const GENERATE_REVIEW_PASS = process.env.GENERATE_REVIEW_PASS !== 'false';
+// acabamento visual ao custo de +1 chamada de modelo. DESLIGADO por padrão
+// porque no tier grátis cada chamada extra aproxima do 429; ligue com
+// GENERATE_REVIEW_PASS=true quando a chave aguentar.
+const GENERATE_REVIEW_PASS = process.env.GENERATE_REVIEW_PASS === 'true';
 
 // claude-opus-5 é o mais capaz (melhor para código complexo); claude-sonnet-5
 // é bem mais barato (~1/2.5 do preço) e ainda excelente para geração de UI.
@@ -325,6 +326,26 @@ async function* streamFromProvider(provider, prompt, { temperature, model } = {}
   }
 }
 
+// Circuit breaker por provedor. Uma geração faz várias chamadas seguidas
+// (planejar → construir → preencher buracos → revisar); sem isso, cada passo
+// re-tenta um provedor que acabou de dar 403/404/429 e a geração inteira
+// fica presa girando na cadeia morta. Quando um provedor falha com um erro
+// que NÃO passa tentando de novo já-já, ele fica em "cooldown" e os passos
+// seguintes o pulam até o tempo acabar.
+const providerCooldownUntil = new Map();
+
+function providerCooldownMs(error) {
+  const status = error?.status ?? error?.code;
+  if ([401, 403, 404].includes(status)) return 15 * 60_000; // auth / tier / modelo inválido
+  if (status === 413) return 15 * 60_000;                    // payload/limite do modelo
+  if (status === 429) return 90_000;                         // cota / rate limit
+  return 0;                                                  // 5xx e rede: transitório, não penaliza
+}
+
+function isProviderOnCooldown(provider) {
+  return Date.now() < (providerCooldownUntil.get(provider) || 0);
+}
+
 /**
  * Gera texto tentando cada provedor da cadeia em ordem. Se um provedor
  * falhar com erro recuperável, emite um evento `provider_switch` e tenta
@@ -338,29 +359,43 @@ async function* streamModelText(prompt, opts = {}) {
     );
   }
 
+  // Ordem normal, mas empurra pro fim quem está em cooldown. Se TODOS
+  // estiverem, tenta na ordem original mesmo (melhor que não tentar).
+  const ready = ACTIVE_PROVIDER_CHAIN.filter(p => !isProviderOnCooldown(p));
+  const chain = ready.length > 0
+    ? [...ready, ...ACTIVE_PROVIDER_CHAIN.filter(p => isProviderOnCooldown(p))]
+    : [...ACTIVE_PROVIDER_CHAIN];
+
   let lastError = null;
 
-  for (let i = 0; i < ACTIVE_PROVIDER_CHAIN.length; i++) {
-    const provider = ACTIVE_PROVIDER_CHAIN[i];
+  for (let i = 0; i < chain.length; i++) {
+    const provider = chain[i];
 
     try {
       for await (const delta of streamFromProvider(provider, prompt, opts)) {
         yield { type: 'delta', provider, text: delta };
       }
+      providerCooldownUntil.delete(provider); // voltou a funcionar
       return;
     } catch (error) {
       lastError = error;
-      const isLast = i === ACTIVE_PROVIDER_CHAIN.length - 1;
+      const isLast = i === chain.length - 1;
       const retryable = isRetryableProviderError(error);
+
+      const coolMs = providerCooldownMs(error);
+      if (coolMs > 0) {
+        providerCooldownUntil.set(provider, Date.now() + coolMs);
+      }
 
       console.warn(
         `⚠️ [${provider}] falhou (${error?.status || error?.code || error?.message || 'erro'}).`,
-        !isLast && retryable ? `Tentando "${ACTIVE_PROVIDER_CHAIN[i + 1]}"...` : 'Sem próximo provedor.'
+        coolMs > 0 ? `Em cooldown por ${Math.round(coolMs / 1000)}s.` : '',
+        !isLast && retryable ? `Tentando "${chain[i + 1]}"...` : 'Sem próximo provedor.'
       );
 
       if (!retryable || isLast) throw error;
 
-      yield { type: 'provider_switch', from: provider, to: ACTIVE_PROVIDER_CHAIN[i + 1] };
+      yield { type: 'provider_switch', from: provider, to: chain[i + 1] };
     }
   }
 
