@@ -1,7 +1,7 @@
 import JSZip from 'jszip';
 import type { FileNode } from '../types';
 import { fullPathOf } from './fileTree';
-import { BASE_DEPENDENCIES } from './sandpackProject';
+import { BASE_DEPENDENCIES, TAILWIND_TOKENS } from './sandpackProject';
 
 function slugify(name: string): string {
   return (
@@ -114,7 +114,11 @@ const INDEX_CSS = `@tailwind base;
 const TAILWIND_CONFIG = `/** @type {import('tailwindcss').Config} */
 export default {
   content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
-  theme: { extend: {} },
+  theme: {
+    extend: {
+      colors: ${JSON.stringify(TAILWIND_TOKENS, null, 6).replace(/\n/g, '\n      ')},
+    },
+  },
   plugins: [],
 };
 `;

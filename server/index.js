@@ -8,6 +8,12 @@ import Anthropic from '@anthropic-ai/sdk';
 import Groq from 'groq-sdk';
 import { Mistral } from '@mistralai/mistralai';
 import * as Babel from '@babel/standalone';
+import {
+  UI_KIT_FILES,
+  UI_KIT_PATHS,
+  UI_KIT_COMPONENT_NAMES,
+  UI_KIT_CONTRACT,
+} from './uiKit.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.join(__dirname, '.env') });
@@ -727,6 +733,7 @@ ${buildAttachmentInstructions(attachment)}
 ${buildPlanInstructions(plan)}
 
 ${STANDARD_STACK_CONTRACT}
+${UI_KIT_CONTRACT}
 
 ======================================================================
 OBJETIVO
@@ -1208,6 +1215,12 @@ app.post('/api/generate', async (req, res) => {
       content: s.content.trim()
     }));
 
+    // Injeta a biblioteca de componentes (Nexa UI kit, estilo shadcn) —
+    // ela vai junto em todo projeto. Se o modelo tentou reescrever algum
+    // arquivo do kit, a versão canônica ganha.
+    rawFiles = rawFiles.filter(f => !UI_KIT_PATHS.has(f.name));
+    rawFiles.push(...UI_KIT_FILES.map(f => ({ ...f })));
+
     // -------- PASSO 2b: garantir App.tsx --------
     // O flash às vezes gera só os componentes e "esquece" o App.tsx (e o
     // ===END===). Sem App.tsx o projeto inteiro não roda, então geramos um.
@@ -1246,15 +1259,16 @@ app.post('/api/generate', async (req, res) => {
       rawFiles.map(f => f.name.replace(/^components\//, '').replace(/\.tsx$/, ''))
     );
 
-    // Componentes que o App.tsx usa mas nenhum arquivo declara.
+    // Componentes que o App.tsx usa mas nenhum arquivo declara (os do UI kit
+    // já existem — não conte <Button/>, <Card/>, <Tabs/> como buraco).
     let missing = [...new Set(referencedComponents)]
-      .filter(name => !haveComponentBaseNames.has(name) && name !== 'App')
+      .filter(name => !haveComponentBaseNames.has(name) && name !== 'App' && !UI_KIT_COMPONENT_NAMES.has(name))
       .map(name => `components/${name}.tsx`)
       .filter(p => !haveNames.has(p));
 
-    // Rede de segurança: se mesmo assim só veio o App.tsx, puxa os primeiros
-    // arquivos do plano.
-    if (rawFiles.length <= 1) {
+    // Rede de segurança: se mesmo assim só veio o App.tsx (fora o UI kit),
+    // puxa os primeiros arquivos do plano.
+    if (rawFiles.filter(f => !UI_KIT_PATHS.has(f.name)).length <= 1) {
       const fromPlan = extractPlannedPaths(plan).filter(
         p => p !== 'App.tsx' && !haveNames.has(p)
       );
@@ -1439,6 +1453,11 @@ HISTÓRICO
 ${previousMessages}
 
 ${STANDARD_STACK_CONTRACT}
+${UI_KIT_CONTRACT}
+
+Os arquivos em components/ui/ e lib/utils.ts são a biblioteca do projeto —
+NÃO os inclua na resposta, NÃO os reescreva. Só edite os arquivos de
+seção / App.tsx.
 
 ======================================================================
 OBJETIVO
@@ -1544,12 +1563,18 @@ Explicação curta.
 
     const sections = parseDelimitedResponse(fullText);
     const messageSection = sections.find(s => s.type === 'MESSAGE');
-    const fileSections = sections.filter(s => s.type === 'FILE');
-    const deleteSections = sections.filter(s => s.type === 'DELETE');
+    const normalizeFilePath = p => (p || 'App.tsx').replace(/^\.?\/*(src\/)?/, '');
+    // Ignora qualquer tentativa do modelo de reescrever a biblioteca do kit.
+    const fileSections = sections
+      .filter(s => s.type === 'FILE')
+      .filter(s => !UI_KIT_PATHS.has(normalizeFilePath(s.arg)));
+    const deleteSections = sections
+      .filter(s => s.type === 'DELETE')
+      .filter(s => !UI_KIT_PATHS.has(normalizeFilePath(s.arg)));
 
     const fileActions = fileSections.map(s => ({
       type: 'update_file',
-      file: s.arg || 'App.tsx',
+      file: normalizeFilePath(s.arg),
       content: s.content.trim()
     }));
 
@@ -1575,7 +1600,7 @@ Explicação curta.
       ...resolvedFileActions,
       ...deleteSections
         .filter(s => s.arg)
-        .map(s => ({ type: 'delete_file', file: s.arg }))
+        .map(s => ({ type: 'delete_file', file: normalizeFilePath(s.arg) }))
     ];
 
     if (brokenFiles.length > 0) {
