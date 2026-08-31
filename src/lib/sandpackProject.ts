@@ -145,17 +145,3 @@ export function bundleKey(files: FileNode[]): string {
   }
   return `${len}:${hash}`;
 }
-
-/**
- * Detecta se um projeto já está no formato "módulo padrão" (import/export).
- * Serve de guarda durante a migração — projetos ainda no formato antigo
- * (escopo global, `function App()` sem export) não rodariam no Sandpack.
- * Depois que todos os projetos/mocks forem convertidos, isso vira sempre true.
- */
-export function isModuleStyle(files: FileNode[]): boolean {
-  const app = files.find(
-    f => f.type === 'file' && /(^|\/)App\.(t|j)sx?$/.test(f.name),
-  );
-  const source = app?.content ?? '';
-  return /\bexport\s+(default|function|const)\b/.test(source) || /^\s*import\s/m.test(source);
-}
