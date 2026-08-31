@@ -118,12 +118,15 @@ const GENERATE_REVIEW_PASS = process.env.GENERATE_REVIEW_PASS !== 'false';
 // claude-opus-5 é o mais capaz (melhor para código complexo); claude-sonnet-5
 // é bem mais barato (~1/2.5 do preço) e ainda excelente para geração de UI.
 const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || 'claude-opus-5';
-// Modelos gratuitos de bom desempenho para geração de UI/código.
-// Groq descontinua modelos com frequência — se este parar de funcionar,
-// veja os IDs ativos em https://console.groq.com/docs/models ou via
-// GET https://api.groq.com/openai/v1/models (com sua chave).
-const GROQ_MODEL = process.env.GROQ_MODEL || 'openai/gpt-oss-120b';
-const MISTRAL_MODEL = process.env.MISTRAL_MODEL || 'mistral-large-latest';
+// Modelos de FALLBACK — precisam estar no tier GRÁTIS de cada provedor,
+// senão a cadeia toda cai quando o Gemini dá 503/cota.
+// - Groq descontinua modelos com frequência: IDs ativos em
+//   https://console.groq.com/docs/models ou GET /openai/v1/models.
+// - Mistral: mistral-large-latest / mistral-medium exigem plano pago
+//   (403 tier_not_allowed). No tier grátis use mistral-small-latest,
+//   open-mistral-nemo ou open-mistral-7b.
+const GROQ_MODEL = process.env.GROQ_MODEL || 'llama-3.3-70b-versatile';
+const MISTRAL_MODEL = process.env.MISTRAL_MODEL || 'mistral-small-latest';
 
 /*
 |--------------------------------------------------------------------------
@@ -1211,8 +1214,10 @@ app.post('/api/generate', async (req, res) => {
 
     // -------- PASSO 2: construir --------
     writeStreamEvent(res, { type: 'phase', phase: 'building', label: 'Gerando os arquivos do projeto...' });
+    const buildPrompt = createGeneratePrompt(prompt, attachment, plan);
+    console.log('🧱 Prompt de construção: %d chars (~%d tokens)', buildPrompt.length, Math.round(buildPrompt.length / 4));
     for await (const event of streamModelText(
-      createGeneratePrompt(prompt, attachment, plan),
+      buildPrompt,
       { temperature: 0.7, model: BUILDER_MODEL }
     )) {
       if (event.type === 'provider_switch') {
