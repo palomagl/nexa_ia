@@ -16,6 +16,11 @@ import {
 } from './uiKit.js';
 import { resolveTheme, renderThemeBlock } from './themes.js';
 
+// Arquivos de scaffold que o front já fornece (preview e .zip). Se o modelo
+// gerar algum, ignoramos — sobrescrever o main.tsx/index.css/config quebra
+// o runtime do preview.
+const SCAFFOLD_BLOCKLIST = /^(index\.html|main\.tsx|index\.css|vite-env\.d\.ts|(tailwind|postcss|vite)\.config\.[a-z]+|package(-lock)?\.json|tsconfig[^/]*\.json|\.?gitignore|README\.md)$/i;
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.join(__dirname, '.env') });
 dotenv.config();
@@ -406,10 +411,16 @@ Escreva React + TypeScript PADRÃO:
 
 ORGANIZAÇÃO DOS ARQUIVOS:
 
+- Gere SOMENTE: App.tsx, theme.ts e arquivos em components/. NADA MAIS.
+- NÃO gere index.html, src/main.tsx, src/index.css, tailwind.config.*,
+  postcss.config.*, vite.config.*, package.json, tsconfig* — o projeto JÁ
+  vem com tudo isso pronto. Se você gerar, será ignorado.
 - Os caminhos nos marcadores ===FILE:...=== são relativos à pasta src/
   do projeto — escreva "App.tsx", "components/Header.tsx", "theme.ts"
   (NÃO escreva "src/App.tsx").
 - App.tsx na raiz; componentes de seção em "components/NomeDaSecao.tsx".
+  Use uma estrutura de pastas RASA — evite components/sections/... ou
+  components/layout/...; deixe tudo em components/ direto.
 - Imports ENTRE os arquivos gerados são relativos:
   import Header from './components/Header';
   import { theme } from '../theme';
@@ -560,8 +571,16 @@ function writeStreamEvent(res, event) {
 */
 
 const VALIDATABLE_LANGUAGES = new Set(['tsx', 'jsx', 'ts', 'js', undefined]);
+// Só validamos código React/TS pela EXTENSÃO — os arquivos gerados chegam
+// sem `language`, então sem isso o Babel tentaria parsear um .css/.json/.md
+// e marcaria como quebrado sem motivo.
+const CODE_FILE_EXT = /\.(tsx|ts|jsx|js|mjs|cjs)$/i;
 
 function validateFileSyntax(file) {
+  const name = file.name || 'App.tsx';
+  if (!CODE_FILE_EXT.test(name)) {
+    return { valid: true };
+  }
   if (file.language && !VALIDATABLE_LANGUAGES.has(file.language)) {
     return { valid: true };
   }
@@ -1222,6 +1241,12 @@ app.post('/api/generate', async (req, res) => {
       content: s.content.trim()
     }));
 
+    // Descarta arquivos de scaffold que o modelo insistiu em gerar — o front
+    // já fornece index.html/main.tsx/index.css/configs.
+    const droppedScaffold = rawFiles.filter(f => SCAFFOLD_BLOCKLIST.test(f.name)).map(f => f.name);
+    if (droppedScaffold.length) console.log('🧹 Ignorando scaffold gerado pelo modelo:', droppedScaffold);
+    rawFiles = rawFiles.filter(f => !SCAFFOLD_BLOCKLIST.test(f.name));
+
     // Injeta a biblioteca de componentes (Nexa UI kit, estilo shadcn) —
     // ela vai junto em todo projeto. Se o modelo tentou reescrever algum
     // arquivo do kit, a versão canônica ganha.
@@ -1584,13 +1609,14 @@ Explicação curta.
     const sections = parseDelimitedResponse(fullText);
     const messageSection = sections.find(s => s.type === 'MESSAGE');
     const normalizeFilePath = p => (p || 'App.tsx').replace(/^\.?\/*(src\/)?/, '');
-    // Ignora qualquer tentativa do modelo de reescrever a biblioteca do kit.
+    const isProtected = p => UI_KIT_PATHS.has(p) || SCAFFOLD_BLOCKLIST.test(p);
+    // Ignora tentativas de reescrever a biblioteca do kit ou o scaffold.
     const fileSections = sections
       .filter(s => s.type === 'FILE')
-      .filter(s => !UI_KIT_PATHS.has(normalizeFilePath(s.arg)));
+      .filter(s => !isProtected(normalizeFilePath(s.arg)));
     const deleteSections = sections
       .filter(s => s.type === 'DELETE')
-      .filter(s => !UI_KIT_PATHS.has(normalizeFilePath(s.arg)));
+      .filter(s => !isProtected(normalizeFilePath(s.arg)));
 
     const fileActions = fileSections.map(s => ({
       type: 'update_file',
