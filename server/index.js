@@ -367,35 +367,53 @@ async function* streamModelText(prompt, opts = {}) {
     : [...ACTIVE_PROVIDER_CHAIN];
 
   let lastError = null;
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
 
   for (let i = 0; i < chain.length; i++) {
     const provider = chain[i];
+    let retried429 = false;
 
-    try {
-      for await (const delta of streamFromProvider(provider, prompt, opts)) {
-        yield { type: 'delta', provider, text: delta };
+    for (;;) {
+      let yielded = false;
+      try {
+        for await (const delta of streamFromProvider(provider, prompt, opts)) {
+          yielded = true;
+          yield { type: 'delta', provider, text: delta };
+        }
+        providerCooldownUntil.delete(provider); // voltou a funcionar
+        return;
+      } catch (error) {
+        lastError = error;
+        const status = error?.status ?? error?.code;
+        const isLast = i === chain.length - 1;
+        const retryable = isRetryableProviderError(error);
+
+        // 429 antes de qualquer token: o rate limit costuma liberar em
+        // segundos. Espera e tenta o MESMO provedor 1x antes de cair pro
+        // fallback (que é mais fraco). Só se nada foi transmitido ainda.
+        if (status === 429 && !retried429 && !yielded) {
+          retried429 = true;
+          console.warn(`⏳ [${provider}] 429 — esperando 20s e tentando de novo...`);
+          await sleep(20_000);
+          continue;
+        }
+
+        const coolMs = providerCooldownMs(error);
+        if (coolMs > 0) {
+          providerCooldownUntil.set(provider, Date.now() + coolMs);
+        }
+
+        console.warn(
+          `⚠️ [${provider}] falhou (${error?.status || error?.code || error?.message || 'erro'}).`,
+          coolMs > 0 ? `Em cooldown por ${Math.round(coolMs / 1000)}s.` : '',
+          !isLast && retryable ? `Tentando "${chain[i + 1]}"...` : 'Sem próximo provedor.'
+        );
+
+        if (!retryable || isLast) throw error;
+
+        yield { type: 'provider_switch', from: provider, to: chain[i + 1] };
+        break; // próximo provedor da cadeia
       }
-      providerCooldownUntil.delete(provider); // voltou a funcionar
-      return;
-    } catch (error) {
-      lastError = error;
-      const isLast = i === chain.length - 1;
-      const retryable = isRetryableProviderError(error);
-
-      const coolMs = providerCooldownMs(error);
-      if (coolMs > 0) {
-        providerCooldownUntil.set(provider, Date.now() + coolMs);
-      }
-
-      console.warn(
-        `⚠️ [${provider}] falhou (${error?.status || error?.code || error?.message || 'erro'}).`,
-        coolMs > 0 ? `Em cooldown por ${Math.round(coolMs / 1000)}s.` : '',
-        !isLast && retryable ? `Tentando "${chain[i + 1]}"...` : 'Sem próximo provedor.'
-      );
-
-      if (!retryable || isLast) throw error;
-
-      yield { type: 'provider_switch', from: provider, to: chain[i + 1] };
     }
   }
 
