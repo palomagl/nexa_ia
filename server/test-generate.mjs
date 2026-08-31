@@ -7,8 +7,15 @@
  * Para cada prompt: chama /api/generate, coleta o evento `done` e faz uma
  * análise estática do resultado (arquivos, tema, validade de sintaxe,
  * uso do UI kit e dos tokens). Não renderiza — isso é no preview do app.
+ *
+ * SAVE_DIR=./_out node test-generate.mjs   -> grava cada projeto gerado em
+ * _out/teste-N/ (arquivos + _meta.json) pra inspecionar o código de verdade.
  */
 import * as Babel from '@babel/standalone';
+import { mkdir, writeFile } from 'node:fs/promises';
+import { dirname, join } from 'node:path';
+
+const SAVE_DIR = process.env.SAVE_DIR || '';
 
 const BASE = process.env.NEXA_URL || 'http://localhost:3000';
 const PROMPTS = process.env.PROMPTS
@@ -80,6 +87,17 @@ async function run(prompt, i) {
   if (!done) { console.log('  sem evento done'); return; }
 
   const files = done.files || [];
+
+  if (SAVE_DIR) {
+    const dir = join(SAVE_DIR, `teste-${i + 1}`);
+    for (const f of files) {
+      const p = join(dir, 'src', f.name);
+      await mkdir(dirname(p), { recursive: true });
+      await writeFile(p, f.content ?? '');
+    }
+    await writeFile(join(dir, '_meta.json'), JSON.stringify({ prompt, theme: done.theme, explanation: done.explanation, brokenFiles: done.brokenFiles }, null, 2));
+    console.log(`  salvo em ${dir}/`);
+  }
   const kit = files.filter(f => f.name.startsWith('components/ui/') || f.name === 'lib/utils.ts');
   const model = files.filter(f => !kit.includes(f));
 
