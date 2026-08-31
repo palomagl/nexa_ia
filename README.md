@@ -58,5 +58,45 @@ cd nexa_ia
 # 3. Instale as dependências
 npm install
 
-# 4. Inicie o servidor de desenvolvimento
+# 4. Inicie o servidor de desenvolvimento (front-end, porta 5173)
 npm run dev
+```
+
+---
+
+## 🧠 Back-end de IA (`server/`)
+
+A geração de projetos é feita por um servidor Express em `server/` que fala
+com provedores de IA com camada gratuita (Gemini, Groq, Mistral) numa
+**cadeia de fallback** — se o primeiro falha por limite de uso, cai pro
+próximo sozinho.
+
+```bash
+cd server
+npm install
+cp .env.example .env      # preencha ao menos GEMINI_API_KEY
+npm run dev                # sobe em http://localhost:3000
+```
+
+Chaves (todas grátis) no `.env`:
+
+| Var | Onde pegar | Obrigatória |
+| --- | --- | --- |
+| `GEMINI_API_KEY` | https://aistudio.google.com/apikey | sim (provedor primário) |
+| `GROQ_API_KEY` | https://console.groq.com/keys | não (fallback) |
+| `MISTRAL_API_KEY` | https://console.mistral.ai/api-keys | não (fallback) |
+| `PEXELS_API_KEY` | https://www.pexels.com/api/ | não, mas sem ela as imagens são aleatórias |
+
+`GEMINI_MODEL` padrão é `gemini-2.5-flash` (o que toda chave grátis suporta).
+Se a sua chave tem acesso ao `gemini-2.5-pro`, defina-o no `.env` — a
+qualidade sobe bastante.
+
+### Como a geração funciona (multi-passo)
+
+1. **Planejar** — define arquitetura, design system e lista de arquivos.
+2. **Construir** — gera todos os arquivos seguindo o plano.
+3. **Completar** — se o App referencia um componente sem arquivo, regenera-o.
+4. **Revisar** — 1 rodada de crítica de UI (desligável com `GENERATE_REVIEW_PASS=false`).
+
+Cada projeto pode ser baixado como `.zip` (botão de download no Preview):
+um `index.html` autoexecutável com todo o código + os arquivos-fonte em `src/`.

@@ -5,15 +5,21 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
+    "start": "node index.js",
+    "dev": "node index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@supabase/supabase-js": "^2.112.3",
+    "@anthropic-ai/sdk": "^0.121.0",
+    "@babel/standalone": "^8.0.4",
+    "@google/genai": "^2.18.0",
+    "@mistralai/mistralai": "^2.6.4",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
-    "express": "^5.2.1"
+    "express": "^5.2.1",
+    "groq-sdk": "^1.6.0"
   }
 }

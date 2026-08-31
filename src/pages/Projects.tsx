@@ -1,20 +1,43 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Star, Clock, Share2, ArrowRight, Grid3x3, List, MoreVertical } from 'lucide-react';
+import { Search, Star, Clock, Share2, ArrowRight, Grid3x3, List, Trash2 } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { cn, formatDate } from '../lib/utils';
 import { Dropdown } from '../components/ui/Dropdown';
+import type { Project } from '../types';
 
 type FilterType = 'all' | 'website' | 'app' | 'dashboard' | 'prototype';
 type SortType = 'recent' | 'name' | 'modified';
 
 export function Projects() {
   const navigate = useNavigate();
-  const { projects, toggleStar, addToast } = useStore();
+  const { projects, toggleStar, deleteProject, addToast } = useStore();
   const [filter, setFilter] = useState<FilterType>('all');
   const [sort, setSort] = useState<SortType>('recent');
   const [search, setSearch] = useState('');
   const [view, setView] = useState<'grid' | 'list'>('grid');
+
+  const handleShare = (p: Project) => {
+    const url = `${window.location.origin}/project/${p.id}`;
+    navigator.clipboard
+      .writeText(url)
+      .then(() => addToast({ type: 'success', title: 'Link copiado!', message: url }))
+      .catch(() => addToast({ type: 'error', title: 'Não foi possível copiar o link' }));
+  };
+
+  const handleDelete = (p: Project) => {
+    if (window.confirm(`Excluir "${p.name}"? Essa ação não pode ser desfeita.`)) {
+      deleteProject(p.id);
+      addToast({ type: 'success', title: 'Projeto excluído' });
+    }
+  };
+
+  const dropdownItems = (p: Project) => [
+    { label: 'Open', icon: <ArrowRight className="w-3.5 h-3.5" />, onClick: () => navigate(`/project/${p.id}`) },
+    { label: p.starred ? 'Unstar' : 'Star', icon: <Star className="w-3.5 h-3.5" />, onClick: () => toggleStar(p.id) },
+    { label: 'Share', icon: <Share2 className="w-3.5 h-3.5" />, onClick: () => handleShare(p) },
+    { label: 'Delete', icon: <Trash2 className="w-3.5 h-3.5" />, danger: true, onClick: () => handleDelete(p) },
+  ];
 
   const filtered = useMemo(() => {
     let result = projects;
@@ -136,14 +159,7 @@ export function Projects() {
                     <h3 className="font-semibold text-white truncate">{p.name}</h3>
                     <p className="text-xs text-white/40 truncate mt-0.5">{p.description}</p>
                   </div>
-                  <Dropdown
-                    items={[
-                      { label: 'Open', icon: <ArrowRight className="w-3.5 h-3.5" />, onClick: () => navigate(`/project/${p.id}`) },
-                      { label: p.starred ? 'Unstar' : 'Star', icon: <Star className="w-3.5 h-3.5" />, onClick: () => toggleStar(p.id) },
-                      { label: 'Share', icon: <Share2 className="w-3.5 h-3.5" />, onClick: () => addToast({ type: 'info', title: 'Share link copied' }) },
-                      { label: 'Delete', icon: <MoreVertical className="w-3.5 h-3.5" />, danger: true, onClick: () => addToast({ type: 'info', title: 'Project deleted' }) },
-                    ]}
-                  />
+                  <Dropdown items={dropdownItems(p)} />
                 </div>
                 <div className="flex items-center gap-3 mt-3 text-xs text-white/30">
                   <span className="capitalize">{p.type}</span>
@@ -202,14 +218,7 @@ export function Projects() {
                   </td>
                   <td className="px-4 py-3 hidden lg:table-cell text-sm text-white/40">{formatDate(p.lastModified)}</td>
                   <td className="px-4 py-3">
-                    <Dropdown
-                      items={[
-                        { label: 'Open', icon: <ArrowRight className="w-3.5 h-3.5" />, onClick: () => navigate(`/project/${p.id}`) },
-                        { label: p.starred ? 'Unstar' : 'Star', icon: <Star className="w-3.5 h-3.5" />, onClick: () => toggleStar(p.id) },
-                        { label: 'Share', icon: <Share2 className="w-3.5 h-3.5" />, onClick: () => addToast({ type: 'info', title: 'Share link copied' }) },
-                        { label: 'Delete', icon: <MoreVertical className="w-3.5 h-3.5" />, danger: true, onClick: () => addToast({ type: 'info', title: 'Project deleted' }) },
-                      ]}
-                    />
+                    <Dropdown items={dropdownItems(p)} />
                   </td>
                 </tr>
               ))}

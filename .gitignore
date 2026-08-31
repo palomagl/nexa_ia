@@ -17,4 +17,9 @@ pnpm-debug.log*
 
 # Sistema operacional
 .DS_Store
-Thumbs.dbgit add .
+Thumbs.db
+
+# Editor / build info
+tsconfig.tsbuildinfo
+.vscode/*
+!.vscode/extensions.json

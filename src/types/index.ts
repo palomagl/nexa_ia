@@ -2,6 +2,8 @@ export type ProjectType = 'website' | 'app' | 'dashboard' | 'prototype';
 export type ProjectStatus = 'draft' | 'building' | 'live' | 'error';
 export type PreviewDevice = 'desktop' | 'tablet' | 'mobile';
 export type FileNodeType = 'file' | 'folder';
+// Tons de roxo trocáveis — ver src/index.css ([data-accent]) e tailwind.config.js
+export type AccentColor = 'roxo' | 'violeta' | 'ameixa' | 'profundo';
 
 export interface User {
   id: string;
@@ -37,7 +39,7 @@ export interface ChatMessage {
 }
 
 export interface ChatAction {
-  type: 'create_file' | 'edit_file' | 'delete_file' | 'install_dep' | 'run_command';
+  type: 'create_file' | 'edit_file' | 'delete_file';
   label: string;
   detail: string;
 }
@@ -48,6 +50,9 @@ export interface Version {
   label: string;
   timestamp: string;
   description: string;
+  // Foto dos arquivos do projeto no momento do checkpoint — permite
+  // restaurar de verdade, não só decorativo.
+  filesSnapshot: FileNode[];
 }
 
 export interface Project {
@@ -65,8 +70,6 @@ export interface Project {
   files: FileNode[];
   chat: ChatMessage[];
   versions: Version[];
-  previewHtml: string;
-  deployUrl?: string;
 }
 
 export interface Toast {

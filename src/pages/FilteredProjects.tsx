@@ -4,12 +4,12 @@ import { Star, Clock, Users, ArrowRight } from 'lucide-react';
 import { cn, formatDate } from '../lib/utils';
 
 interface Props {
-  filter: 'starred' | 'recent' | 'shared';
+  filter: 'starred' | 'all' | 'shared';
 }
 
 const config = {
   starred: { title: 'Starred Projects', icon: Star, desc: 'Projects you have starred', filter: (p: any) => p.starred },
-  recent: { title: 'Recently Viewed', icon: Clock, desc: 'Projects you recently opened', filter: (p: any) => true },
+  all: { title: 'All Projects', icon: Clock, desc: 'Every project in this workspace', filter: () => true },
   shared: { title: 'Shared with you', icon: Users, desc: 'Projects others shared with you', filter: (p: any) => p.shared },
 };
 
