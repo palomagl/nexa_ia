@@ -118,7 +118,7 @@ export const THEME_LIBRARY = [
     id: 'criativo-agencia',
     label: 'Agência criativa / portfólio / estúdio de design',
     keywords: ['agencia', 'portfolio', 'estudio', 'design', 'criativo', 'branding', 'publicidade', 'marketing', 'fotografo', 'fotografia', 'ilustrador', 'artista', 'produtora', 'audiovisual', 'freelancer'],
-    fonts: { display: 'Clash Display', body: 'Satoshi' },
+    fonts: { display: 'Familjen Grotesk', body: 'Manrope' },
     radius: '1.25rem',
     personality: 'ousado, expressivo, cores saturadas, tipografia enorme, formas grandes, playful mas sofisticado',
     palette: {

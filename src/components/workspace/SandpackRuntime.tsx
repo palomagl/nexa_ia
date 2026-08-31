@@ -8,7 +8,7 @@ import {
 // folha de estilo separada pra importar.
 
 import type { FileNode, ProjectTheme } from '../../types';
-import { filesToSandpack, bundleKey, type ThemePalette } from '../../lib/sandpackProject';
+import { filesToSandpack, bundleKey, type ThemeInput } from '../../lib/sandpackProject';
 
 interface Props {
   files: FileNode[];
@@ -23,11 +23,14 @@ interface Props {
  * editor, sem abas — o chrome (device, refresh, download) fica no Preview.tsx.
  */
 export function SandpackRuntime({ files, theme, refreshToken = 0 }: Props) {
-  const palette = theme?.palette as ThemePalette | undefined;
+  const themeInput = useMemo<ThemeInput | undefined>(
+    () => (theme ? { palette: theme.palette, fonts: theme.fonts } : undefined),
+    [theme],
+  );
 
   const { files: sandpackFiles, dependencies } = useMemo(
-    () => filesToSandpack(files, palette),
-    [files, palette],
+    () => filesToSandpack(files, themeInput),
+    [files, themeInput],
   );
 
   const contentKey = useMemo(() => bundleKey(files), [files]);

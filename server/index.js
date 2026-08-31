@@ -793,6 +793,24 @@ ${plan}
 `;
 }
 
+// Lint leve de qualidade: acusa os problemas mais comuns que passam pela
+// validação de sintaxe mas deixam o resultado com cara de rascunho. Não
+// corrige — só devolve avisos pro log e pro cliente.
+function lintGeneratedFiles(files) {
+  const warnings = [];
+  const PLACEHOLDER = /lorem ipsum|seu texto aqui|t[íi]tulo da se[çc][aã]o|bem-vindo ao nosso site|texto de exemplo|conte[úu]do aqui|placeholder text/i;
+
+  for (const f of files) {
+    if (!CODE_FILE_EXT.test(f.name)) continue;
+    const c = f.content || '';
+    if (/href\s*=\s*["']#["']/.test(c)) warnings.push(`${f.name}: <a href="#"> (link decorativo — devia ser <button>)`);
+    if (/\{\{IMG:/.test(c)) warnings.push(`${f.name}: marcador {{IMG:}} não resolvido`);
+    if (PLACEHOLDER.test(c)) warnings.push(`${f.name}: texto-placeholder ("${(c.match(PLACEHOLDER) || [''])[0]}")`);
+    if (/<form(\s|>)/.test(c) && !/onSubmit=/.test(c)) warnings.push(`${f.name}: <form> sem onSubmit (recarrega a página ao enviar)`);
+  }
+  return warnings;
+}
+
 function createGeneratePrompt(prompt, attachment, plan) {
   return `
 Você é o Nexa AI, um designer de produto e engenheiro frontend sênior.
@@ -810,6 +828,93 @@ ${buildPlanInstructions(plan)}
 
 ${STANDARD_STACK_CONTRACT}
 ${UI_KIT_CONTRACT}
+
+======================================================================
+TIPOGRAFIA (as fontes do tema já estão carregadas)
+======================================================================
+
+- NÃO adicione <link>, @import ou <style> de fonte — o preview e o export
+  já carregam as fontes do tema.
+- Títulos e números de destaque: classe "font-display".
+- O corpo já herda a fonte de texto do tema (não precisa fazer nada).
+- Hierarquia clara: h1 do hero grande (text-4xl a text-6xl, font-semibold/bold,
+  tracking-tight), h2 de seção text-3xl md:text-4xl, corpo text-base
+  text-muted-foreground, labels/eyebrows text-xs uppercase tracking-wide.
+
+======================================================================
+MODELO DE REFERÊNCIA DA ESTRUTURA (copie a FORMA, troque o conteúdo)
+======================================================================
+
+--- theme.ts ---
+export const theme = {
+  name: 'Aurora',
+  tagline: 'Café de especialidade no coração da cidade',
+  accent: '#a8551f',
+} as const;
+
+--- App.tsx ---
+import { useState } from 'react';
+import Header from './components/Header';
+import Hero from './components/Hero';
+import Menu from './components/Menu';
+import Contact from './components/Contact';
+import Footer from './components/Footer';
+
+export default function App() {
+  const [menuOpen, setMenuOpen] = useState(false);
+  return (
+    <div className="min-h-screen bg-background text-foreground antialiased">
+      <Header menuOpen={menuOpen} onToggle={() => setMenuOpen((v) => !v)} />
+      <main>
+        <Hero />
+        <Menu />
+        <Contact />
+      </main>
+      <Footer />
+    </div>
+  );
+}
+
+--- components/Menu.tsx ---
+import { Tabs, TabsList, TabsTrigger, TabsContent } from './ui/tabs';
+import { Card, CardContent } from './ui/card';
+
+const cafes = [
+  { name: 'Espresso de origem única', price: 'R$ 9', note: 'Notas de cacau e caramelo, torra média.' },
+  // 5-8 itens REAIS, com nome, preço e descrição de verdade
+];
+
+export default function Menu() {
+  return (
+    <section id="cardapio" className="mx-auto max-w-6xl px-6 py-24">
+      <p className="text-xs font-medium uppercase tracking-wide text-accent">Cardápio</p>
+      <h2 className="mt-2 font-display text-3xl font-semibold md:text-4xl">Torrados aqui, todo dia</h2>
+      <Tabs defaultValue="cafes" className="mt-10">
+        <TabsList>
+          <TabsTrigger value="cafes">Cafés</TabsTrigger>
+          <TabsTrigger value="doces">Doces</TabsTrigger>
+        </TabsList>
+        <TabsContent value="cafes" className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {cafes.map((c) => (
+            <Card key={c.name}>
+              <CardContent className="pt-6">
+                <div className="flex items-baseline justify-between gap-3">
+                  <h3 className="font-medium">{c.name}</h3>
+                  <span className="font-semibold text-accent">{c.price}</span>
+                </div>
+                <p className="mt-2 text-sm text-muted-foreground">{c.note}</p>
+              </CardContent>
+            </Card>
+          ))}
+        </TabsContent>
+      </Tabs>
+    </section>
+  );
+}
+
+Observe: seção = <section> com id, mx-auto max-w-6xl px-6, py-20/24 de
+respiro vertical; eyebrow + h2 font-display; dados em array no topo do
+arquivo com conteúdo real; componentes do kit para cards/abas/formulário.
 
 ======================================================================
 OBJETIVO
@@ -921,8 +1026,8 @@ Adapte de verdade:
 - botões e CTAs
 - largura máxima do conteúdo (ex: max-w-6xl mx-auto)
 
-(Regras de imagem, interatividade e cor já estão na seção RUNTIME DO
-PREVIEW acima — siga-as à risca, especialmente a do marcador {{IMG: ...}}.)
+(Regras de imagem, interatividade e cor já estão no contrato da STACK
+acima — siga-as à risca, especialmente a do marcador {{IMG: ...}}.)
 
 ======================================================================
 QUALIDADE
@@ -1048,31 +1153,37 @@ REGRAS DA STACK (Vite + React 18 + TypeScript + Tailwind, empacotado de verdade)
 // prompt de construção.
 async function planProject(prompt, attachment) {
   const planPrompt = `
-Você é um diretor de arte + arquiteto frontend. NÃO escreva código agora.
-Planeje uma aplicação React (Vite + React 18 + TypeScript + Tailwind,
-single-page) para o pedido abaixo.
+Você é um diretor de conteúdo + arquiteto frontend. NÃO escreva código agora.
+Faça o BRIEF de uma aplicação React single-page para o pedido abaixo. A
+paleta e a tipografia serão definidas depois por um tema curado — foque no
+NEGÓCIO, no CONTEÚDO de cada seção e na lista de arquivos.
 
 PEDIDO:
 ${prompt}
 ${attachment && attachment.name ? `\n(O usuário anexou a imagem "${attachment.name}".)` : ''}
 
-Responda em TEXTO PURO, curto e direto, com estas 4 seções e nada mais:
+Responda em TEXTO PURO, direto, com estas seções e nada mais:
 
 ===PLAN===
-NEGÓCIO: nome fictício + 1 frase de posicionamento + tom de voz.
+NEGÓCIO: nome fictício + 1 frase de posicionamento + público + tom de voz.
 
-DESIGN SYSTEM:
-- paleta: bg, surface, texto, texto-mudo, 1 cor de destaque (valores hex)
-- fontes: 1 par (display + corpo), nomes de Google Fonts reais
-- personalidade visual: raio de borda, uso de sombra, densidade, 2-3 adjetivos
+SEÇÕES (ordem de cima pra baixo — para CADA uma, 1-2 linhas de conteúdo
+CONCRETO: qual headline, quais itens/dados reais, qual CTA):
+- Header — links e CTA
+- Hero — headline + subtexto + CTA principal
+- <seção> — ...
+- Footer — colunas e o que vai em cada
+
+IMAGENS: liste só as seções que precisam de foto e, para cada, um assunto
+curto em inglês (ex.: "Hero: cozy specialty coffee bar interior").
+Se o negócio não precisar de fotos, escreva "nenhuma".
 
 ARQUIVOS (caminho relativo a src/ — responsabilidade em 1 linha):
 - App.tsx — composição + estado de navegação
-- theme.ts — o objeto theme exportado com o design system acima
-- components/<Nome>.tsx — <seção> ...
-(liste TODOS: 4-6 arquivos p/ landing simples, 8-14 p/ app com várias seções)
-
-SEÇÕES (ordem de cima pra baixo na tela): lista curta.
+- theme.ts — objeto theme (nome, tagline, accent)
+- components/<Nome>.tsx — <seção>
+(4-6 arquivos p/ landing simples, 8-14 p/ app com várias seções; pasta
+components/ rasa)
 ===END===
 `;
 
@@ -1437,6 +1548,8 @@ app.post('/api/generate', async (req, res) => {
       radius: chosenTheme.radius,
     };
 
+    const warnings = lintGeneratedFiles(files);
+
     console.log('📁 Arquivos gerados:', files.map(f => f.name));
     console.log('🎨 Tema:', chosenTheme.id);
     console.log('📦 Tamanho do App.tsx:', appFile.content.length, 'caracteres');
@@ -1445,11 +1558,15 @@ app.post('/api/generate', async (req, res) => {
     if (brokenFiles.length > 0) {
       console.error('⚠️ Arquivos com erro de sintaxe não corrigido:', brokenFiles.map(f => f.name));
     }
+    if (warnings.length > 0) {
+      console.warn('🔎 Avisos de qualidade:\n  - ' + warnings.join('\n  - '));
+    }
 
     writeStreamEvent(res, {
       type: 'done',
       files,
       brokenFiles,
+      warnings,
       theme: themePayload,
       explanation:
         (explanationSection && explanationSection.content.trim()) ||

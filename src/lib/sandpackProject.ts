@@ -44,25 +44,56 @@ export const TAILWIND_TOKENS = {
 /** Paleta de um tema curado (server/themes.js) — mesmas chaves de
  *  TAILWIND_TOKENS, sobrescreve o neutro padrão quando o projeto tem tema. */
 export type ThemePalette = Partial<Record<keyof typeof TAILWIND_TOKENS, unknown>>;
+export type ThemeFonts = { display?: string; body?: string };
+export interface ThemeInput {
+  palette?: ThemePalette;
+  fonts?: ThemeFonts;
+}
 
-function mergeTokens(palette?: ThemePalette) {
+export function mergeTokens(palette?: ThemePalette) {
   return palette ? { ...TAILWIND_TOKENS, ...palette } : TAILWIND_TOKENS;
 }
 
-function buildPreviewIndexHtml(palette?: ThemePalette): string {
+/** URL do Google Fonts pras 1-2 famílias do tema (Fredoka fica de fallback). */
+export function googleFontsHref(fonts?: ThemeFonts): string {
+  const fams = [fonts?.display, fonts?.body]
+    .filter((f): f is string => !!f)
+    .filter((f, i, a) => a.indexOf(f) === i)
+    .map(f => `family=${f.trim().replace(/\s+/g, '+')}:wght@400;500;600;700`);
+  return `https://fonts.googleapis.com/css2?${fams.join('&')}&display=swap`;
+}
+
+/** Config de fontFamily do Tailwind: font-display / font-body / font-sans. */
+export function fontFamilyConfig(fonts?: ThemeFonts) {
+  const body = fonts?.body || 'Inter';
+  const display = fonts?.display || body;
+  const sys = ['ui-sans-serif', 'system-ui', 'sans-serif'];
+  return {
+    sans: [body, ...sys],
+    body: [body, ...sys],
+    display: [display, ...sys],
+  };
+}
+
+function buildPreviewIndexHtml(theme?: ThemeInput): string {
+  const colors = mergeTokens(theme?.palette);
+  const fontFamily = fontFamilyConfig(theme?.fonts);
+  const bodyStack = fontFamily.body.map(f => (/\s/.test(f) ? `'${f}'` : f)).join(', ');
   return `<!doctype html>
 <html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Preview</title>
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="${googleFontsHref(theme?.fonts)}" />
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
-      tailwind.config = { theme: { extend: { colors: ${JSON.stringify(mergeTokens(palette))} } } };
+      tailwind.config = { theme: { extend: { colors: ${JSON.stringify(colors)}, fontFamily: ${JSON.stringify(fontFamily)} } } };
     </script>
     <style>
       html, body, #root { margin: 0; padding: 0; min-height: 100%; }
-      body { font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
+      body { font-family: ${bodyStack}; }
     </style>
   </head>
   <body>
@@ -107,7 +138,7 @@ function findAppPath(map: SandpackFileMap): string | null {
  * Converte os arquivos do projeto para o mapa do Sandpack, injetando o
  * scaffold (index.html com Tailwind via CDN, src/main.tsx, src/index.css).
  */
-export function filesToSandpack(files: FileNode[], palette?: ThemePalette): {
+export function filesToSandpack(files: FileNode[], theme?: ThemeInput): {
   files: SandpackFileMap;
   dependencies: Record<string, string>;
 } {
@@ -119,7 +150,7 @@ export function filesToSandpack(files: FileNode[], palette?: ThemePalette): {
     map[`/src/${rel}`] = { code: node.content ?? '' };
   }
 
-  map['/index.html'] = { code: buildPreviewIndexHtml(palette) };
+  map['/index.html'] = { code: buildPreviewIndexHtml(theme) };
   map['/src/main.tsx'] = { code: PREVIEW_MAIN_TSX };
   if (!map['/src/index.css']) map['/src/index.css'] = { code: '' };
 

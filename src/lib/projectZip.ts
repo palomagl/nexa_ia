@@ -1,7 +1,12 @@
 import JSZip from 'jszip';
 import type { FileNode, ProjectTheme } from '../types';
 import { fullPathOf } from './fileTree';
-import { BASE_DEPENDENCIES, TAILWIND_TOKENS, type ThemePalette } from './sandpackProject';
+import {
+  BASE_DEPENDENCIES,
+  TAILWIND_TOKENS,
+  fontFamilyConfig,
+  googleFontsHref,
+} from './sandpackProject';
 
 function slugify(name: string): string {
   return (
@@ -86,6 +91,8 @@ const INDEX_HTML = `<!doctype html>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>__TITLE__</title>
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="__FONTS_HREF__" />
   </head>
   <body>
     <div id="root"></div>
@@ -111,14 +118,16 @@ const INDEX_CSS = `@tailwind base;
 @tailwind utilities;
 `;
 
-function tailwindConfig(palette?: ThemePalette): string {
-  const colors = palette ? { ...TAILWIND_TOKENS, ...palette } : TAILWIND_TOKENS;
+function tailwindConfig(theme?: ProjectTheme): string {
+  const colors = theme?.palette ? { ...TAILWIND_TOKENS, ...theme.palette } : TAILWIND_TOKENS;
+  const fontFamily = fontFamilyConfig(theme?.fonts);
   return `/** @type {import('tailwindcss').Config} */
 export default {
   content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
   theme: {
     extend: {
       colors: ${JSON.stringify(colors, null, 6).replace(/\n/g, '\n      ')},
+      fontFamily: ${JSON.stringify(fontFamily, null, 6).replace(/\n/g, '\n      ')},
     },
   },
   plugins: [],
@@ -181,8 +190,10 @@ export async function buildProjectZip(
   zip.file('package.json', packageJson(slug));
   zip.file('vite.config.ts', VITE_CONFIG);
   zip.file('tsconfig.json', TS_CONFIG);
-  zip.file('index.html', INDEX_HTML.replace('__TITLE__', projectName.replace(/</g, '&lt;')));
-  zip.file('tailwind.config.js', tailwindConfig(theme?.palette as ThemePalette | undefined));
+  zip.file('index.html', INDEX_HTML
+    .replace('__TITLE__', projectName.replace(/</g, '&lt;'))
+    .replace('__FONTS_HREF__', googleFontsHref(theme?.fonts)));
+  zip.file('tailwind.config.js', tailwindConfig(theme));
   zip.file('postcss.config.js', POSTCSS_CONFIG);
   zip.file('.gitignore', 'node_modules\ndist\n');
   zip.file('README.md', buildReadme(projectName, filePaths));
