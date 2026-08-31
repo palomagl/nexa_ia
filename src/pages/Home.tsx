@@ -124,6 +124,7 @@ export function Home() {
         files?: { name: string; content: string }[];
         explanation?: string;
         brokenFiles?: { name: string; error: string }[];
+        theme?: import('../types').ProjectTheme;
       };
 
       let finalResult: GenerateResult | null = null;
@@ -133,7 +134,7 @@ export function Home() {
         | { type: 'chunk'; text: string }
         | { type: 'phase'; phase: string; label?: string }
         | { type: 'provider_switch' }
-        | { type: 'done'; code: string; files?: { name: string; content: string }[]; explanation?: string; brokenFiles?: { name: string; error: string }[] }
+        | { type: 'done'; code: string; files?: { name: string; content: string }[]; explanation?: string; brokenFiles?: { name: string; error: string }[]; theme?: import('../types').ProjectTheme }
         | { type: 'error'; error?: string; details?: string }
       >(response, event => {
         if (event.type === 'chunk') {
@@ -159,7 +160,7 @@ export function Home() {
       }
 
       const result = finalResult as GenerateResult;
-      const id = createProject(prompt.trim(), 'app', result.files, result.explanation);
+      const id = createProject(prompt.trim(), 'app', result.files, result.explanation, result.theme);
 
       if (result.brokenFiles && result.brokenFiles.length > 0) {
         addToast({

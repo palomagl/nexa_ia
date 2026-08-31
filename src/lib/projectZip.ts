@@ -1,7 +1,7 @@
 import JSZip from 'jszip';
-import type { FileNode } from '../types';
+import type { FileNode, ProjectTheme } from '../types';
 import { fullPathOf } from './fileTree';
-import { BASE_DEPENDENCIES, TAILWIND_TOKENS } from './sandpackProject';
+import { BASE_DEPENDENCIES, TAILWIND_TOKENS, type ThemePalette } from './sandpackProject';
 
 function slugify(name: string): string {
   return (
@@ -111,17 +111,20 @@ const INDEX_CSS = `@tailwind base;
 @tailwind utilities;
 `;
 
-const TAILWIND_CONFIG = `/** @type {import('tailwindcss').Config} */
+function tailwindConfig(palette?: ThemePalette): string {
+  const colors = palette ? { ...TAILWIND_TOKENS, ...palette } : TAILWIND_TOKENS;
+  return `/** @type {import('tailwindcss').Config} */
 export default {
   content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
   theme: {
     extend: {
-      colors: ${JSON.stringify(TAILWIND_TOKENS, null, 6).replace(/\n/g, '\n      ')},
+      colors: ${JSON.stringify(colors, null, 6).replace(/\n/g, '\n      ')},
     },
   },
   plugins: [],
 };
 `;
+}
 
 const POSTCSS_CONFIG = `export default {
   plugins: {
@@ -163,7 +166,11 @@ ${filePaths.map(p => `src/${p}`).join('\n')}
  * rodável: package.json, config do Vite/TS/Tailwind, index.html, src/main.tsx,
  * src/index.css e os arquivos gerados soltos em src/. Devolve o Blob.
  */
-export async function buildProjectZip(files: FileNode[], projectName: string): Promise<Blob> {
+export async function buildProjectZip(
+  files: FileNode[],
+  projectName: string,
+  theme?: ProjectTheme,
+): Promise<Blob> {
   const zip = new JSZip();
   const slug = slugify(projectName);
 
@@ -175,7 +182,7 @@ export async function buildProjectZip(files: FileNode[], projectName: string): P
   zip.file('vite.config.ts', VITE_CONFIG);
   zip.file('tsconfig.json', TS_CONFIG);
   zip.file('index.html', INDEX_HTML.replace('__TITLE__', projectName.replace(/</g, '&lt;')));
-  zip.file('tailwind.config.js', TAILWIND_CONFIG);
+  zip.file('tailwind.config.js', tailwindConfig(theme?.palette as ThemePalette | undefined));
   zip.file('postcss.config.js', POSTCSS_CONFIG);
   zip.file('.gitignore', 'node_modules\ndist\n');
   zip.file('README.md', buildReadme(projectName, filePaths));
@@ -193,12 +200,16 @@ export async function buildProjectZip(files: FileNode[], projectName: string): P
 }
 
 /** Gera o .zip e dispara o download no navegador. */
-export async function downloadProjectZip(files: FileNode[], projectName: string): Promise<void> {
+export async function downloadProjectZip(
+  files: FileNode[],
+  projectName: string,
+  theme?: ProjectTheme,
+): Promise<void> {
   if (!files.some(f => f.type === 'file' && (f.content || '').trim())) {
     throw new Error('O projeto não tem código para exportar.');
   }
 
-  const blob = await buildProjectZip(files, projectName);
+  const blob = await buildProjectZip(files, projectName, theme);
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;

@@ -42,6 +42,16 @@ export interface ChatAction {
   detail: string;
 }
 
+/** Tema curado escolhido pelo servidor no passo de planejamento — a mesma
+ *  paleta é aplicada nos tokens do Tailwind do preview e do .zip. */
+export interface ProjectTheme {
+  id: string;
+  label: string;
+  palette: Record<string, string | { DEFAULT: string; foreground: string }>;
+  fonts: { display: string; body: string };
+  radius: string;
+}
+
 export interface Version {
   id: string;
   version: number;
@@ -68,6 +78,7 @@ export interface Project {
   files: FileNode[];
   chat: ChatMessage[];
   versions: Version[];
+  theme?: ProjectTheme;
 }
 
 export interface Toast {

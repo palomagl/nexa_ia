@@ -197,7 +197,7 @@ export function ProjectWorkspace() {
         {/* Preview / Código — elemento dominante */}
         <section className="flex-1 min-w-0 min-h-0 flex flex-col overflow-hidden">
           {view === 'preview' ? (
-            <Preview files={project.files} projectName={project.name} />
+            <Preview files={project.files} projectName={project.name} theme={project.theme} />
           ) : activeFile ? (
             <CodeEditor
               content={activeFile.content || ''}

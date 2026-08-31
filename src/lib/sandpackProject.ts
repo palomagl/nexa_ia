@@ -41,7 +41,16 @@ export const TAILWIND_TOKENS = {
   popover: { DEFAULT: '#ffffff', foreground: '#0a0a0a' },
 } as const;
 
-const PREVIEW_INDEX_HTML = `<!doctype html>
+/** Paleta de um tema curado (server/themes.js) — mesmas chaves de
+ *  TAILWIND_TOKENS, sobrescreve o neutro padrão quando o projeto tem tema. */
+export type ThemePalette = Partial<Record<keyof typeof TAILWIND_TOKENS, unknown>>;
+
+function mergeTokens(palette?: ThemePalette) {
+  return palette ? { ...TAILWIND_TOKENS, ...palette } : TAILWIND_TOKENS;
+}
+
+function buildPreviewIndexHtml(palette?: ThemePalette): string {
+  return `<!doctype html>
 <html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
@@ -49,7 +58,7 @@ const PREVIEW_INDEX_HTML = `<!doctype html>
     <title>Preview</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
-      tailwind.config = { theme: { extend: { colors: ${JSON.stringify(TAILWIND_TOKENS)} } } };
+      tailwind.config = { theme: { extend: { colors: ${JSON.stringify(mergeTokens(palette))} } } };
     </script>
     <style>
       html, body, #root { margin: 0; padding: 0; min-height: 100%; }
@@ -61,6 +70,7 @@ const PREVIEW_INDEX_HTML = `<!doctype html>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>`;
+}
 
 const PREVIEW_MAIN_TSX = `import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -97,7 +107,7 @@ function findAppPath(map: SandpackFileMap): string | null {
  * Converte os arquivos do projeto para o mapa do Sandpack, injetando o
  * scaffold (index.html com Tailwind via CDN, src/main.tsx, src/index.css).
  */
-export function filesToSandpack(files: FileNode[]): {
+export function filesToSandpack(files: FileNode[], palette?: ThemePalette): {
   files: SandpackFileMap;
   dependencies: Record<string, string>;
 } {
@@ -109,7 +119,7 @@ export function filesToSandpack(files: FileNode[]): {
     map[`/src/${rel}`] = { code: node.content ?? '' };
   }
 
-  map['/index.html'] = { code: PREVIEW_INDEX_HTML };
+  map['/index.html'] = { code: buildPreviewIndexHtml(palette) };
   map['/src/main.tsx'] = { code: PREVIEW_MAIN_TSX };
   if (!map['/src/index.css']) map['/src/index.css'] = { code: '' };
 

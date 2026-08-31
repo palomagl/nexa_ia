@@ -14,6 +14,7 @@ import {
   UI_KIT_COMPONENT_NAMES,
   UI_KIT_CONTRACT,
 } from './uiKit.js';
+import { resolveTheme, renderThemeBlock } from './themes.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.join(__dirname, '.env') });
@@ -1016,7 +1017,13 @@ SEÇÕES (ordem de cima pra baixo na tela): lista curta.
   const planSection = sections.find(s => s.type === 'PLAN');
   // Se o planner não seguiu o formato, usa o texto cru mesmo — ainda serve
   // de norte pro passo de construção. Só não deixa passar vazio.
-  return (planSection && planSection.content.trim()) || text.trim();
+  const planBody = (planSection && planSection.content.trim()) || text.trim();
+
+  // Escolhe um tema curado pelo pedido + o que o planner descreveu, e crava
+  // os valores no plano — o builder passa a usar paleta/tipografia prontas
+  // em vez de inventar do zero.
+  const { theme } = resolveTheme(prompt, planBody);
+  return `${planBody}\n${renderThemeBlock(theme)}`;
 }
 
 // PASSO 3 — regenera UM arquivo que faltou ou veio vazio, dando o plano e os
@@ -1336,7 +1343,19 @@ app.post('/api/generate', async (req, res) => {
 
     const explanationSection = sections.find(s => s.type === 'EXPLANATION');
 
+    // Tema curado escolhido pra este projeto — o front aplica a mesma paleta
+    // nos tokens do Tailwind do preview e do .zip.
+    const { theme: chosenTheme } = resolveTheme(prompt, plan);
+    const themePayload = {
+      id: chosenTheme.id,
+      label: chosenTheme.label,
+      palette: chosenTheme.palette,
+      fonts: chosenTheme.fonts,
+      radius: chosenTheme.radius,
+    };
+
     console.log('📁 Arquivos gerados:', files.map(f => f.name));
+    console.log('🎨 Tema:', chosenTheme.id);
     console.log('📦 Tamanho do App.tsx:', appFile.content.length, 'caracteres');
     console.log('✅ Projeto gerado com sucesso');
 
@@ -1348,6 +1367,7 @@ app.post('/api/generate', async (req, res) => {
       type: 'done',
       files,
       brokenFiles,
+      theme: themePayload,
       explanation:
         (explanationSection && explanationSection.content.trim()) ||
         'Projeto criado com sucesso pelo Nexa AI.'

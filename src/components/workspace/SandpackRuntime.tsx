@@ -7,11 +7,12 @@ import {
 // Sandpack 2.x injeta o próprio CSS em runtime (via @stitches/core) — não há
 // folha de estilo separada pra importar.
 
-import type { FileNode } from '../../types';
-import { filesToSandpack, bundleKey } from '../../lib/sandpackProject';
+import type { FileNode, ProjectTheme } from '../../types';
+import { filesToSandpack, bundleKey, type ThemePalette } from '../../lib/sandpackProject';
 
 interface Props {
   files: FileNode[];
+  theme?: ProjectTheme;
   /** Muda esse valor pra forçar um recarregamento limpo do bundler. */
   refreshToken?: number;
 }
@@ -21,13 +22,16 @@ interface Props {
  * Sandpack (Vite + React + TS) e mostra só o resultado renderizado. Sem
  * editor, sem abas — o chrome (device, refresh, download) fica no Preview.tsx.
  */
-export function SandpackRuntime({ files, refreshToken = 0 }: Props) {
+export function SandpackRuntime({ files, theme, refreshToken = 0 }: Props) {
+  const palette = theme?.palette as ThemePalette | undefined;
+
   const { files: sandpackFiles, dependencies } = useMemo(
-    () => filesToSandpack(files),
-    [files],
+    () => filesToSandpack(files, palette),
+    [files, palette],
   );
 
-  const key = `${refreshToken}:${useMemo(() => bundleKey(files), [files])}`;
+  const contentKey = useMemo(() => bundleKey(files), [files]);
+  const key = `${refreshToken}:${theme?.id ?? 'none'}:${contentKey}`;
 
   return (
     <SandpackProvider

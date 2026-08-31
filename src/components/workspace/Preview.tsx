@@ -8,7 +8,7 @@ import {
   Download,
 } from 'lucide-react';
 
-import type { FileNode, PreviewDevice } from '../../types';
+import type { FileNode, PreviewDevice, ProjectTheme } from '../../types';
 import { cn } from '../../lib/utils';
 import { useStore } from '../../store/useStore';
 import { downloadProjectZip } from '../../lib/projectZip';
@@ -22,9 +22,10 @@ const SandpackRuntime = lazy(() =>
 interface Props {
   files: FileNode[];
   projectName: string;
+  theme?: ProjectTheme;
 }
 
-export function Preview({ files, projectName }: Props) {
+export function Preview({ files, projectName, theme }: Props) {
   const addToast = useStore(s => s.addToast);
   const [device, setDevice] = useState<PreviewDevice>('desktop');
   const [refreshToken, setRefreshToken] = useState(0);
@@ -46,7 +47,7 @@ export function Preview({ files, projectName }: Props) {
     if (downloading) return;
     setDownloading(true);
     try {
-      await downloadProjectZip(files, projectName);
+      await downloadProjectZip(files, projectName, theme);
       addToast({
         type: 'success',
         title: 'Projeto exportado',
@@ -132,7 +133,7 @@ export function Preview({ files, projectName }: Props) {
               </div>
             }
           >
-            <SandpackRuntime files={files} refreshToken={refreshToken} />
+            <SandpackRuntime files={files} theme={theme} refreshToken={refreshToken} />
           </Suspense>
         </div>
       </div>
