@@ -12,6 +12,7 @@ import {
   UI_KIT_FILES,
   UI_KIT_PATHS,
   UI_KIT_COMPONENT_NAMES,
+  UI_KIT_MODULES,
   UI_KIT_CONTRACT,
 } from './uiKit.js';
 import { resolveTheme, renderThemeBlock } from './themes.js';
@@ -807,6 +808,8 @@ function lintGeneratedFiles(files) {
     if (/\{\{IMG:/.test(c)) warnings.push(`${f.name}: marcador {{IMG:}} não resolvido`);
     if (PLACEHOLDER.test(c)) warnings.push(`${f.name}: texto-placeholder ("${(c.match(PLACEHOLDER) || [''])[0]}")`);
     if (/<form(\s|>)/.test(c) && !/onSubmit=/.test(c)) warnings.push(`${f.name}: <form> sem onSubmit (recarrega a página ao enviar)`);
+    const badUi = findBadUiImports(c);
+    if (badUi.length) warnings.push(`${f.name}: importa ./ui/${badUi.join(', ./ui/')} — não existe no kit (quebra o preview)`);
   }
   return warnings;
 }
@@ -1252,6 +1255,55 @@ código completo
   return null;
 }
 
+// Detecta imports de "./ui/<x>" / "../ui/<x>" que o kit NÃO tem. Um import
+// desses passa na validação de sintaxe mas mata o bundle inteiro do preview.
+function findBadUiImports(content) {
+  const bad = new Set();
+  const re = /from\s+['"]\.{1,2}\/(?:components\/)?ui\/([a-z0-9-]+)['"]/g;
+  let m;
+  while ((m = re.exec(content || ''))) {
+    if (!UI_KIT_MODULES.has(m[1])) bad.add(m[1]);
+  }
+  return [...bad];
+}
+
+// Regenera UM arquivo trocando os imports inválidos de ./ui/* por
+// implementação inline (o kit não vai ter todo componente do shadcn).
+async function fixBadUiImports(file, badModules, existingFiles) {
+  const kitList = [...UI_KIT_MODULES].join(', ');
+  const fixPrompt = `
+${STACK_RULES_SHORT}
+
+O arquivo abaixo importa de ./ui/${badModules.join(', ./ui/')} — mas esses
+NÃO existem no projeto. O kit em ./ui/ só tem: ${kitList}.
+
+Reescreva o arquivo INTEIRO removendo esses imports. Onde usava o
+componente que não existe, implemente o comportamento inline no próprio
+arquivo com useState + Tailwind (ex.: um <select> nativo, um dropdown com
+estado, um carrossel simples). Mantenha o mesmo design, conteúdo e as
+props. Pode continuar usando os componentes do kit que EXISTEM.
+
+ARQUIVO (${file.name}):
+${file.content}
+
+Responda em TEXTO PURO, exatamente:
+
+===FILE:${file.name}===
+código completo corrigido
+===END===
+`;
+  try {
+    const text = await collectModelText(fixPrompt, { temperature: 0.3, model: BUILDER_MODEL });
+    const section = parseDelimitedResponse(text).find(s => s.type === 'FILE');
+    if (section && section.content.trim() && findBadUiImports(section.content).length === 0) {
+      return { ...file, content: section.content.trim() };
+    }
+  } catch (e) {
+    console.warn(`⚠️ Falha ao corrigir imports de ${file.name}:`, e.message);
+  }
+  return null;
+}
+
 // PASSO 4 — auto-revisão de UI. Recebe o app montado, devolve SÓ os arquivos
 // que valeu a pena mexer (0+). Uma rodada só.
 async function reviewProject(prompt, plan, files) {
@@ -1444,6 +1496,30 @@ app.post('/api/generate', async (req, res) => {
             comps.map(c => `      <${c} />`).join('\n') +
             `\n    </div>\n  );\n}\n`,
         });
+      }
+    }
+
+    // -------- PASSO 2c: corrigir imports de ./ui/* que não existem --------
+    // O modelo conhece o shadcn inteiro e às vezes pede um componente que
+    // o kit não empacota (./ui/select, ./ui/carousel...). Isso passa na
+    // validação de sintaxe mas mata o bundle do preview. Reescreve só os
+    // arquivos afetados (no máx. 3), inlinando o que faltava.
+    {
+      const withBadUi = rawFiles
+        .filter(f => !UI_KIT_PATHS.has(f.name) && CODE_FILE_EXT.test(f.name))
+        .map(f => ({ file: f, bad: findBadUiImports(f.content) }))
+        .filter(x => x.bad.length > 0)
+        .slice(0, 3);
+      if (withBadUi.length > 0) {
+        console.log('🩹 Imports de ./ui/* inexistentes, corrigindo:', withBadUi.flatMap(x => x.bad));
+        writeStreamEvent(res, { type: 'phase', phase: 'building', label: 'Ajustando componentes...' });
+        for (const { file, bad } of withBadUi) {
+          const fixed = await fixBadUiImports(file, bad, rawFiles);
+          if (fixed) {
+            const i = rawFiles.findIndex(f => f.name === file.name);
+            if (i >= 0) rawFiles[i] = fixed;
+          }
+        }
       }
     }
 

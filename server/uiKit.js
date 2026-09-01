@@ -329,6 +329,221 @@ export function TabsContent({ value, children, className }: { value: string; chi
 }
 `;
 
+// Overlay compartilhado por Sheet e Dialog (estado próprio, sem Radix).
+const sheet = `import { createContext, useContext, useState, cloneElement, isValidElement } from 'react';
+import { X } from 'lucide-react';
+import { cn } from '../../lib/utils';
+
+const SheetCtx = createContext<{ open: boolean; setOpen: (v: boolean) => void } | null>(null);
+
+export function Sheet({ children }: { children: React.ReactNode }) {
+  const [open, setOpen] = useState(false);
+  return <SheetCtx.Provider value={{ open, setOpen }}>{children}</SheetCtx.Provider>;
+}
+
+export function SheetTrigger({ children, asChild }: { children: React.ReactNode; asChild?: boolean }) {
+  const ctx = useContext(SheetCtx)!;
+  const open = () => ctx.setOpen(true);
+  if (asChild && isValidElement(children)) {
+    return cloneElement(children as React.ReactElement<{ onClick?: () => void }>, { onClick: open });
+  }
+  return <button type="button" onClick={open}>{children}</button>;
+}
+
+export function SheetClose({ children, asChild, className }: { children: React.ReactNode; asChild?: boolean; className?: string }) {
+  const ctx = useContext(SheetCtx)!;
+  const close = () => ctx.setOpen(false);
+  if (asChild && isValidElement(children)) {
+    return cloneElement(children as React.ReactElement<{ onClick?: () => void }>, { onClick: close });
+  }
+  return <button type="button" onClick={close} className={className}>{children}</button>;
+}
+
+export function SheetContent({
+  children,
+  side = 'right',
+  className,
+}: {
+  children: React.ReactNode;
+  side?: 'left' | 'right' | 'top' | 'bottom';
+  className?: string;
+}) {
+  const ctx = useContext(SheetCtx)!;
+  if (!ctx.open) return null;
+  const pos = {
+    right: 'inset-y-0 right-0 h-full w-3/4 max-w-sm border-l',
+    left: 'inset-y-0 left-0 h-full w-3/4 max-w-sm border-r',
+    top: 'inset-x-0 top-0 border-b',
+    bottom: 'inset-x-0 bottom-0 border-t',
+  }[side];
+  return (
+    <div className="fixed inset-0 z-50">
+      <button type="button" aria-label="Fechar" className="absolute inset-0 bg-black/40" onClick={() => ctx.setOpen(false)} />
+      <div className={cn('absolute bg-background p-6 shadow-lg border-border overflow-y-auto', pos, className)}>
+        <button type="button" onClick={() => ctx.setOpen(false)} className="absolute right-4 top-4 opacity-70 transition-opacity hover:opacity-100">
+          <X className="h-4 w-4" />
+        </button>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+export function SheetHeader({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
+  return <div className={cn('mb-4 flex flex-col space-y-1', className)} {...props} />;
+}
+export function SheetTitle({ className, ...props }: React.HTMLAttributes<HTMLHeadingElement>) {
+  return <h2 className={cn('text-lg font-semibold text-foreground', className)} {...props} />;
+}
+export function SheetDescription({ className, ...props }: React.HTMLAttributes<HTMLParagraphElement>) {
+  return <p className={cn('text-sm text-muted-foreground', className)} {...props} />;
+}
+`;
+
+const dialog = `import { createContext, useContext, useState, cloneElement, isValidElement } from 'react';
+import { X } from 'lucide-react';
+import { cn } from '../../lib/utils';
+
+const DialogCtx = createContext<{ open: boolean; setOpen: (v: boolean) => void } | null>(null);
+
+export function Dialog({ children }: { children: React.ReactNode }) {
+  const [open, setOpen] = useState(false);
+  return <DialogCtx.Provider value={{ open, setOpen }}>{children}</DialogCtx.Provider>;
+}
+
+export function DialogTrigger({ children, asChild }: { children: React.ReactNode; asChild?: boolean }) {
+  const ctx = useContext(DialogCtx)!;
+  const open = () => ctx.setOpen(true);
+  if (asChild && isValidElement(children)) {
+    return cloneElement(children as React.ReactElement<{ onClick?: () => void }>, { onClick: open });
+  }
+  return <button type="button" onClick={open}>{children}</button>;
+}
+
+export function DialogClose({ children, asChild, className }: { children: React.ReactNode; asChild?: boolean; className?: string }) {
+  const ctx = useContext(DialogCtx)!;
+  const close = () => ctx.setOpen(false);
+  if (asChild && isValidElement(children)) {
+    return cloneElement(children as React.ReactElement<{ onClick?: () => void }>, { onClick: close });
+  }
+  return <button type="button" onClick={close} className={className}>{children}</button>;
+}
+
+export function DialogContent({ children, className }: { children: React.ReactNode; className?: string }) {
+  const ctx = useContext(DialogCtx)!;
+  if (!ctx.open) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <button type="button" aria-label="Fechar" className="absolute inset-0 bg-black/50" onClick={() => ctx.setOpen(false)} />
+      <div className={cn('relative w-full max-w-lg rounded-xl border border-border bg-background p-6 shadow-lg', className)}>
+        <button type="button" onClick={() => ctx.setOpen(false)} className="absolute right-4 top-4 opacity-70 transition-opacity hover:opacity-100">
+          <X className="h-4 w-4" />
+        </button>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+export function DialogHeader({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
+  return <div className={cn('mb-4 flex flex-col space-y-1.5', className)} {...props} />;
+}
+export function DialogTitle({ className, ...props }: React.HTMLAttributes<HTMLHeadingElement>) {
+  return <h2 className={cn('text-lg font-semibold text-foreground', className)} {...props} />;
+}
+export function DialogDescription({ className, ...props }: React.HTMLAttributes<HTMLParagraphElement>) {
+  return <p className={cn('text-sm text-muted-foreground', className)} {...props} />;
+}
+export function DialogFooter({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
+  return <div className={cn('mt-6 flex justify-end gap-2', className)} {...props} />;
+}
+`;
+
+const dropdownMenu = `import { createContext, useContext, useEffect, useRef, useState, cloneElement, isValidElement } from 'react';
+import { cn } from '../../lib/utils';
+
+const MenuCtx = createContext<{ open: boolean; setOpen: (v: boolean) => void } | null>(null);
+
+export function DropdownMenu({ children }: { children: React.ReactNode }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, [open]);
+  return (
+    <MenuCtx.Provider value={{ open, setOpen }}>
+      <div ref={ref} className="relative inline-block text-left">{children}</div>
+    </MenuCtx.Provider>
+  );
+}
+
+export function DropdownMenuTrigger({ children, asChild }: { children: React.ReactNode; asChild?: boolean }) {
+  const ctx = useContext(MenuCtx)!;
+  const toggle = () => ctx.setOpen(!ctx.open);
+  if (asChild && isValidElement(children)) {
+    return cloneElement(children as React.ReactElement<{ onClick?: () => void }>, { onClick: toggle });
+  }
+  return <button type="button" onClick={toggle}>{children}</button>;
+}
+
+export function DropdownMenuContent({ children, align = 'end', className }: { children: React.ReactNode; align?: 'start' | 'end'; className?: string }) {
+  const ctx = useContext(MenuCtx)!;
+  if (!ctx.open) return null;
+  return (
+    <div className={cn('absolute z-50 mt-2 min-w-[10rem] rounded-md border border-border bg-popover p-1 shadow-md', align === 'end' ? 'right-0' : 'left-0', className)}>
+      {children}
+    </div>
+  );
+}
+
+export function DropdownMenuItem({ children, onClick, className }: { children: React.ReactNode; onClick?: () => void; className?: string }) {
+  const ctx = useContext(MenuCtx)!;
+  return (
+    <button
+      type="button"
+      onClick={() => { onClick?.(); ctx.setOpen(false); }}
+      className={cn('flex w-full items-center rounded-sm px-2 py-1.5 text-left text-sm hover:bg-muted', className)}
+    >
+      {children}
+    </button>
+  );
+}
+
+export function DropdownMenuLabel({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
+  return <div className={cn('px-2 py-1.5 text-sm font-semibold', className)} {...props} />;
+}
+export function DropdownMenuSeparator({ className }: { className?: string }) {
+  return <div className={cn('-mx-1 my-1 h-px bg-border', className)} />;
+}
+`;
+
+const avatar = `import { useState } from 'react';
+import { cn } from '../../lib/utils';
+
+export function Avatar({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
+  return <div className={cn('relative flex h-10 w-10 shrink-0 overflow-hidden rounded-full bg-muted', className)} {...props} />;
+}
+
+export function AvatarImage({ src, alt = '', className }: { src?: string; alt?: string; className?: string }) {
+  const [failed, setFailed] = useState(false);
+  if (!src || failed) return null;
+  return <img src={src} alt={alt} onError={() => setFailed(true)} className={cn('aspect-square h-full w-full object-cover', className)} />;
+}
+
+export function AvatarFallback({ children, className }: { children: React.ReactNode; className?: string }) {
+  return (
+    <span className={cn('flex h-full w-full items-center justify-center text-sm font-medium text-muted-foreground', className)}>
+      {children}
+    </span>
+  );
+}
+`;
+
 export const UI_KIT_FILES = [
   { name: 'lib/utils.ts', content: utils },
   { name: 'components/ui/button.tsx', content: button },
@@ -340,6 +555,10 @@ export const UI_KIT_FILES = [
   { name: 'components/ui/separator.tsx', content: separator },
   { name: 'components/ui/accordion.tsx', content: accordion },
   { name: 'components/ui/tabs.tsx', content: tabs },
+  { name: 'components/ui/sheet.tsx', content: sheet },
+  { name: 'components/ui/dialog.tsx', content: dialog },
+  { name: 'components/ui/dropdown-menu.tsx', content: dropdownMenu },
+  { name: 'components/ui/avatar.tsx', content: avatar },
 ];
 
 export const UI_KIT_DEPENDENCIES = {
@@ -361,6 +580,17 @@ export const UI_KIT_COMPONENT_NAMES = new Set([
   'Input', 'Textarea', 'Label', 'Badge', 'Separator',
   'Accordion', 'AccordionItem', 'AccordionTrigger', 'AccordionContent',
   'Tabs', 'TabsList', 'TabsTrigger', 'TabsContent',
+  'Sheet', 'SheetTrigger', 'SheetClose', 'SheetContent', 'SheetHeader', 'SheetTitle', 'SheetDescription',
+  'Dialog', 'DialogTrigger', 'DialogClose', 'DialogContent', 'DialogHeader', 'DialogTitle', 'DialogDescription', 'DialogFooter',
+  'DropdownMenu', 'DropdownMenuTrigger', 'DropdownMenuContent', 'DropdownMenuItem', 'DropdownMenuLabel', 'DropdownMenuSeparator',
+  'Avatar', 'AvatarImage', 'AvatarFallback',
+]);
+
+/** Módulos que o modelo PODE importar de ./ui/ — qualquer outro caminho
+ *  ./ui/<x> é inválido (o kit não tem) e quebra o bundle do preview. */
+export const UI_KIT_MODULES = new Set([
+  'button', 'card', 'input', 'textarea', 'label', 'badge', 'separator',
+  'accordion', 'tabs', 'sheet', 'dialog', 'dropdown-menu', 'avatar',
 ]);
 
 /** Trecho do prompt que apresenta o kit ao modelo. */
@@ -388,6 +618,21 @@ do kit:
     <Accordion defaultValue="item-1"><AccordionItem value="item-1"><AccordionTrigger>P</AccordionTrigger><AccordionContent>R</AccordionContent></AccordionItem></Accordion>
 - import { Tabs, TabsList, TabsTrigger, TabsContent } from './components/ui/tabs'
     <Tabs defaultValue="a"><TabsList><TabsTrigger value="a">A</TabsTrigger></TabsList><TabsContent value="a">...</TabsContent></Tabs>
+- import { Sheet, SheetTrigger, SheetContent, SheetHeader, SheetTitle, SheetClose } from './components/ui/sheet'
+    gaveta lateral (menu mobile). <SheetTrigger asChild><Button>...</Button></SheetTrigger><SheetContent side="right">...</SheetContent>
+- import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from './components/ui/dialog'
+    modal centralizado. mesmo padrão do Sheet.
+- import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from './components/ui/dropdown-menu'
+    <DropdownMenu><DropdownMenuTrigger asChild><Button>...</Button></DropdownMenuTrigger><DropdownMenuContent><DropdownMenuItem onClick={...}>X</DropdownMenuItem></DropdownMenuContent></DropdownMenu>
+- import { Avatar, AvatarImage, AvatarFallback } from './components/ui/avatar'
+    <Avatar><AvatarImage src="..." alt="..." /><AvatarFallback>AB</AvatarFallback></Avatar>
+
+ESTA É A LISTA COMPLETA. Os únicos módulos em ./ui/ são: button, card,
+input, textarea, label, badge, separator, accordion, tabs, sheet, dialog,
+dropdown-menu, avatar. NÃO importe nenhum outro (ex.: ./ui/sheet existe,
+mas ./ui/select, ./ui/carousel, ./ui/table, ./ui/tooltip NÃO existem).
+Se precisar de algo fora dessa lista, construa inline com useState no
+próprio componente de seção — não invente um arquivo em ./ui/.
 
 O caminho de import depende de onde está o arquivo que importa:
 - de components/Hero.tsx -> './ui/button'
