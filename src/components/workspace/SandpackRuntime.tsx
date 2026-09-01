@@ -8,7 +8,7 @@ import {
 // folha de estilo separada pra importar.
 
 import type { FileNode, ProjectTheme } from '../../types';
-import { filesToSandpack, bundleKey, type ThemeInput } from '../../lib/sandpackProject';
+import { filesToSandpack, bundleKey, SANDPACK_ENTRY, type ThemeInput } from '../../lib/sandpackProject';
 
 interface Props {
   files: FileNode[];
@@ -18,9 +18,9 @@ interface Props {
 }
 
 /**
- * Runtime do Preview: empacota os arquivos do projeto com o bundler do
- * Sandpack (Vite + React + TS) e mostra só o resultado renderizado. Sem
- * editor, sem abas — o chrome (device, refresh, download) fica no Preview.tsx.
+ * Runtime do Preview: empacota os arquivos do projeto com o bundler clássico
+ * do Sandpack (hospedado) e mostra só o resultado renderizado. Sem editor,
+ * sem abas — o chrome (device, refresh, download) fica no Preview.tsx.
  */
 export function SandpackRuntime({ files, theme, refreshToken = 0 }: Props) {
   const themeInput = useMemo<ThemeInput | undefined>(
@@ -39,10 +39,10 @@ export function SandpackRuntime({ files, theme, refreshToken = 0 }: Props) {
   return (
     <SandpackProvider
       key={key}
-      template="vite-react-ts"
+      template="react-ts"
       theme="light"
       files={sandpackFiles as SandpackFiles}
-      customSetup={{ dependencies }}
+      customSetup={{ entry: SANDPACK_ENTRY, dependencies }}
       options={{
         recompileMode: 'delayed',
         recompileDelay: 400,

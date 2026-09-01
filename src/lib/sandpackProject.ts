@@ -3,10 +3,17 @@ import { fullPathOf } from './fileTree';
 
 /**
  * Adaptador entre a árvore de arquivos do projeto (FileNode[]) e o formato
- * que o Sandpack espera: um mapa plano `caminho -> { code }`, com um scaffold
- * mínimo de Vite + React + TS por cima. O código gerado agora é React + TS
- * padrão (import/export normais), então o Sandpack empacota de verdade — não
- * há mais concatenação em escopo global nem Babel na mão.
+ * que o Sandpack espera: um mapa plano `caminho -> { code }`.
+ *
+ * Usamos o bundler CLÁSSICO do Sandpack (template "react-ts"), que roda num
+ * iframe hospedado (sandpack-bundler.codesandbox.io) e resolve os imports +
+ * node_modules por CDN. NÃO usamos o template "vite-react-ts": ele sobe um
+ * Vite de verdade dentro do navegador (nodebox), que exige headers de
+ * cross-origin isolation (COOP/COEP) na página host — sem eles o preview
+ * fica carregando pra sempre.
+ *
+ * Convenção do template clássico: arquivos na RAIZ (/App.tsx,
+ * /components/Header.tsx), entrada em /index.tsx, HTML em /public/index.html.
  */
 
 export type SandpackFileMap = Record<string, { code: string }>;
@@ -98,15 +105,13 @@ function buildPreviewIndexHtml(theme?: ThemeInput): string {
   </head>
   <body>
     <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>`;
 }
 
-const PREVIEW_MAIN_TSX = `import { StrictMode } from 'react';
+const PREVIEW_ENTRY_TSX = `import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
-import './index.css';
 
 const el = document.getElementById('root');
 if (el) {
@@ -127,16 +132,17 @@ const FALLBACK_APP = `export default function App() {
 }
 `;
 
-/** Nome de arquivo de entrada do projeto, se existir. */
-function findAppPath(map: SandpackFileMap): string | null {
-  return (
-    Object.keys(map).find(p => /\/src\/App\.(t|j)sx?$/.test(p)) ?? null
-  );
+/** Caminho de entrada do template clássico. */
+export const SANDPACK_ENTRY = '/index.tsx';
+
+function hasAppFile(map: SandpackFileMap): boolean {
+  return Object.keys(map).some(p => /^\/App\.(t|j)sx?$/.test(p));
 }
 
 /**
- * Converte os arquivos do projeto para o mapa do Sandpack, injetando o
- * scaffold (index.html com Tailwind via CDN, src/main.tsx, src/index.css).
+ * Converte os arquivos do projeto para o mapa do Sandpack (template clássico
+ * "react-ts"): arquivos na raiz, entrada /index.tsx, HTML /public/index.html
+ * com Tailwind via CDN + fontes do tema.
  */
 export function filesToSandpack(files: FileNode[], theme?: ThemeInput): {
   files: SandpackFileMap;
@@ -147,15 +153,14 @@ export function filesToSandpack(files: FileNode[], theme?: ThemeInput): {
   for (const node of files) {
     if (node.type !== 'file') continue;
     const rel = fullPathOf(files, node.id).replace(/^\/+/, '');
-    map[`/src/${rel}`] = { code: node.content ?? '' };
+    map[`/${rel}`] = { code: node.content ?? '' };
   }
 
-  map['/index.html'] = { code: buildPreviewIndexHtml(theme) };
-  map['/src/main.tsx'] = { code: PREVIEW_MAIN_TSX };
-  if (!map['/src/index.css']) map['/src/index.css'] = { code: '' };
+  map['/public/index.html'] = { code: buildPreviewIndexHtml(theme) };
+  map[SANDPACK_ENTRY] = { code: PREVIEW_ENTRY_TSX };
 
-  if (!findAppPath(map)) {
-    map['/src/App.tsx'] = { code: FALLBACK_APP };
+  if (!hasAppFile(map)) {
+    map['/App.tsx'] = { code: FALLBACK_APP };
   }
 
   return { files: map, dependencies: { ...BASE_DEPENDENCIES } };
