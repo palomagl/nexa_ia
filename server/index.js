@@ -22,6 +22,7 @@ import {
   mergeScaffold,
   sectionStub,
 } from './projectPlan.js';
+import { enforceModuleIntegrity } from './validateProject.js';
 
 // Arquivos de scaffold que o front já fornece (preview e .zip). Se o modelo
 // gerar algum, ignoramos — sobrescrever o main.tsx/index.css/config quebra
@@ -1652,7 +1653,33 @@ app.post('/api/generate', async (req, res) => {
     );
 
     console.log('🔍 Validando sintaxe dos arquivos...');
-    const { files, brokenFiles } = await validateAndFixFiles(filesWithImages);
+    const { files: syntaxCheckedFiles, brokenFiles: syntaxBrokenFiles } =
+      await validateAndFixFiles(filesWithImages);
+
+    // -------- Validation V1: integridade de módulos (Camada A, estática) -----
+    // Sem executar nada e sem chamar modelo: análise de escopo + grafo de
+    // imports. Auto-importa nomes conhecidos (kit / react / lucide), e o portão
+    // troca seções irrecuperáveis por um stub determinístico pra o Preview
+    // MONTAR em vez de dar tela branca. Não toca no ProjectPlan/scaffold.
+    const integrity = enforceModuleIntegrity(
+      syntaxCheckedFiles,
+      syntaxBrokenFiles.map(b => b.name),
+    );
+    const files = integrity.files;
+    const brokenFiles = [
+      ...new Map(
+        [...syntaxBrokenFiles, ...integrity.broken, ...integrity.stubbed].map(b => [b.name, b]),
+      ).values(),
+    ];
+    if (integrity.fixed.length > 0) {
+      console.log('🔧 [integridade] imports adicionados automaticamente:', integrity.fixed);
+    }
+    if (integrity.stubbed.length > 0) {
+      console.log(
+        '🧩 [integridade] seções irrecuperáveis viraram stub:',
+        integrity.stubbed.map(s => `${s.name} (${s.error})`),
+      );
+    }
 
     const appFile =
       files.find(f => f.name === 'App.tsx' || f.name.endsWith('App.tsx')) ||
@@ -1674,7 +1701,7 @@ app.post('/api/generate', async (req, res) => {
       radius: chosenTheme.radius,
     };
 
-    const warnings = lintGeneratedFiles(files);
+    const warnings = [...lintGeneratedFiles(files), ...integrity.warnings];
 
     console.log('📁 Arquivos gerados:', files.map(f => f.name));
     console.log('🎨 Tema:', chosenTheme.id);
@@ -1682,7 +1709,7 @@ app.post('/api/generate', async (req, res) => {
     console.log('✅ Projeto gerado com sucesso');
 
     if (brokenFiles.length > 0) {
-      console.error('⚠️ Arquivos com erro de sintaxe não corrigido:', brokenFiles.map(f => f.name));
+      console.error('⚠️ Arquivos com problema não resolvido:', brokenFiles.map(f => `${f.name} — ${f.error}`));
     }
     if (warnings.length > 0) {
       console.warn('🔎 Avisos de qualidade:\n  - ' + warnings.join('\n  - '));
