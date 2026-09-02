@@ -1661,9 +1661,11 @@ app.post('/api/generate', async (req, res) => {
     // imports. Auto-importa nomes conhecidos (kit / react / lucide), e o portão
     // troca seções irrecuperáveis por um stub determinístico pra o Preview
     // MONTAR em vez de dar tela branca. Não toca no ProjectPlan/scaffold.
+    const appFallback = projectPlan ? scaffoldSpine(projectPlan, chosenTheme)[0] : null;
     const integrity = enforceModuleIntegrity(
       syntaxCheckedFiles,
       syntaxBrokenFiles.map(b => b.name),
+      { appFallback },
     );
     const files = integrity.files;
     const brokenFiles = [
@@ -1679,6 +1681,15 @@ app.post('/api/generate', async (req, res) => {
         '🧩 [integridade] seções irrecuperáveis viraram stub:',
         integrity.stubbed.map(s => `${s.name} (${s.error})`),
       );
+    }
+    if (integrity.recovered.length > 0) {
+      console.log(
+        '♻️ [integridade] App.tsx irrecuperável — usando o App do scaffold:',
+        integrity.recovered.map(r => r.error),
+      );
+    }
+    for (const r of integrity.recovered) {
+      integrity.warnings.push(`${r.name}: reconstruído a partir do plano (o App da IA quebrou — ${r.error})`);
     }
 
     const appFile =

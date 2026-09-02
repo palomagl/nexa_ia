@@ -346,6 +346,61 @@ export default function Grid() { return <PriceCard />; }
   assert.ok(!r.unresolvedImports.some(u => u.file === 'components/Grid.tsx' && u.reason === 'no-export'));
 });
 
+// ---------------------------------------------------------------------------
+// Portão: fallback determinístico do App.tsx (Preview nunca dá tela branca)
+// ---------------------------------------------------------------------------
+const BAD_APP = {
+  name: 'App.tsx',
+  content: `import Header from './components/Header';
+import { Broken } from './components/DoesNotExist';
+export default function App() { return <div><Header /><Broken /></div>; }
+`,
+};
+const SCAFFOLD_APP = {
+  name: 'App.tsx',
+  content: `import Header from './components/Header';
+export default function App() {
+  return <div className="min-h-screen bg-background text-foreground"><Header /></div>;
+}
+`,
+};
+
+test('portão: App.tsx quebrado + fallback válido => recovered, não broken', () => {
+  const { files, broken, recovered } = enforceModuleIntegrity(
+    [BAD_APP, GOOD_HEADER, ...UI_KIT_FILES],
+    [],
+    { appFallback: SCAFFOLD_APP },
+  );
+  assert.ok(recovered.some(r => r.name === 'App.tsx'));
+  assert.ok(!broken.some(b => b.name === 'App.tsx'));
+  const app = files.find(f => f.name === 'App.tsx');
+  assert.equal(app.content, SCAFFOLD_APP.content);
+  compiles('App.tsx', app.content);
+});
+
+test('portão: fallback rejeitado se um import dele não resolve', () => {
+  const badFallback = {
+    name: 'App.tsx',
+    content: `import Header from './components/Header';
+import Missing from './components/Missing';
+export default function App() { return <div><Header /><Missing /></div>; }
+`,
+  };
+  const { broken, recovered } = enforceModuleIntegrity(
+    [BAD_APP, GOOD_HEADER, ...UI_KIT_FILES],
+    [],
+    { appFallback: badFallback },
+  );
+  assert.equal(recovered.length, 0);
+  assert.ok(broken.some(b => b.name === 'App.tsx'));
+});
+
+test('portão: sem appFallback, App.tsx quebrado continua broken', () => {
+  const { broken, recovered } = enforceModuleIntegrity([BAD_APP, GOOD_HEADER, ...UI_KIT_FILES]);
+  assert.equal(recovered.length, 0);
+  assert.ok(broken.some(b => b.name === 'App.tsx'));
+});
+
 test('v1.1: namespace import (import * as X) não gera no-export', () => {
   const utils = { name: 'lib/format.ts', content: `export const brl = (n) => 'R$' + n;\n` };
   const f = {

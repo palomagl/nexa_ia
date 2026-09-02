@@ -445,12 +445,20 @@ const SECTION_RE = /^components\/([A-Z][A-Za-z0-9_]*)\.tsx$/;
  *  - broken:  [{name,error}] que continuam quebrados e NÃO puderam virar stub
  *             (App.tsx, theme.ts, lib/*) — reportados, ainda embarcam
  *  - stubbed: [{name,error}] seções trocadas por stub pra o Preview montar
+ *  - recovered:[{name,error}] App.tsx irrecuperável trocado pelo App do
+ *             scaffold (opts.appFallback) pra o Preview NUNCA dar tela branca
  *  - warnings:[string] problemas "soft" (dep npm fora da lista, import que não
  *             resolve) — não bloqueiam
+ *
+ * opts.appFallback: { name:'App.tsx', content } — o App determinístico do
+ * scaffold da Etapa 1 (scaffoldSpine(projectPlan, theme)[0]). Só é usado se o
+ * App.tsx real ficar "hard" E o fallback compilar E todos os imports dele
+ * resolverem contra o conjunto final de arquivos.
  */
-export function enforceModuleIntegrity(files, priorBrokenNames = []) {
+export function enforceModuleIntegrity(files, priorBrokenNames = [], opts = {}) {
   const out = (files || []).map(f => ({ ...f }));
   const prior = new Set(priorBrokenNames);
+  const isApp = name => name === 'App.tsx' || name.endsWith('/App.tsx');
 
   // 1) análise + auto-import
   const r0 = analyzeProject(out);
@@ -509,17 +517,42 @@ export function enforceModuleIntegrity(files, priorBrokenNames = []) {
 
   const broken = [];
   const stubbed = [];
+  const recovered = [];
   for (const [file, reasons] of hard) {
     const error = reasons.join('; ');
     const sec = file.match(SECTION_RE);
+
     if (sec && !UI_KIT_PATHS.has(file)) {
       const i = out.findIndex(f => f.name === file);
       if (i >= 0) out[i] = { ...out[i], content: sectionStub(sec[1]) };
       stubbed.push({ name: file, error });
-    } else {
-      broken.push({ name: file, error });
+      continue;
     }
+
+    // App.tsx irrecuperável: última tentativa é o App determinístico do
+    // scaffold — só entra se compilar E todos os imports dele resolverem.
+    if (isApp(file) && opts.appFallback && appFallbackFits(opts.appFallback, file, out)) {
+      const i = out.findIndex(f => f.name === file);
+      if (i >= 0) out[i] = { ...out[i], content: opts.appFallback.content };
+      recovered.push({ name: file, error });
+      continue;
+    }
+
+    broken.push({ name: file, error });
   }
 
-  return { files: out, fixed, broken, stubbed, warnings: soft };
+  return { files: out, fixed, broken, stubbed, recovered, warnings: soft };
+}
+
+/** O App do scaffold é seguro pra substituir o App.tsx quebrado? */
+function appFallbackFits(fallback, appName, files) {
+  if (!fallback || !fallback.content) return false;
+  const facts = fileFacts(appName, fallback.content);
+  if (facts.parseError) return false;
+  const nameSet = new Set(files.map(f => f.name));
+  for (const imp of facts.imports) {
+    if (!imp.source.startsWith('.')) continue;
+    if (!resolveRelativeName(appName, imp.source, nameSet)) return false;
+  }
+  return true;
 }
