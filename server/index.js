@@ -16,6 +16,12 @@ import {
   UI_KIT_CONTRACT,
 } from './uiKit.js';
 import { resolveTheme, renderThemeBlock } from './themes.js';
+import {
+  buildProjectPlan,
+  scaffoldSpine,
+  mergeScaffold,
+  sectionStub,
+} from './projectPlan.js';
 
 // Arquivos de scaffold que o front já fornece (preview e .zip). Se o modelo
 // gerar algum, ignoramos — sobrescrever o main.tsx/index.css/config quebra
@@ -1428,6 +1434,24 @@ app.post('/api/generate', async (req, res) => {
       }
     }
 
+    // -------- PASSO 1.5: ProjectPlan estruturado (Engine 2.0 — etapa 1) -----
+    // Estrutura o texto de plano num objeto JSON e resolve o tema já aqui. É a
+    // fonte do scaffold determinístico no PASSO 2a. Nunca bloqueia a geração.
+    const { theme: chosenTheme } = resolveTheme(prompt, plan);
+    let projectPlan = null;
+    try {
+      writeStreamEvent(res, { type: 'phase', phase: 'structuring', label: 'Estruturando o projeto...' });
+      projectPlan = buildProjectPlan({ prompt, planText: plan, theme: chosenTheme });
+      console.log(
+        '🧩 ProjectPlan: %d seção(ões) [%s], fonte=%s',
+        projectPlan.pages[0].sections.length,
+        projectPlan.pages[0].sections.map(s => s.component).join(', '),
+        projectPlan.meta.source,
+      );
+    } catch (planStructError) {
+      console.warn('⚠️ Falha ao estruturar o ProjectPlan (seguindo sem scaffold):', planStructError.message);
+    }
+
     // -------- PASSO 2: construir --------
     writeStreamEvent(res, { type: 'phase', phase: 'building', label: 'Gerando os arquivos do projeto...' });
     const buildPrompt = createGeneratePrompt(prompt, attachment, plan);
@@ -1473,6 +1497,33 @@ app.post('/api/generate', async (req, res) => {
     // arquivo do kit, a versão canônica ganha.
     rawFiles = rawFiles.filter(f => !UI_KIT_PATHS.has(f.name));
     rawFiles.push(...UI_KIT_FILES.map(f => ({ ...f })));
+
+    // -------- PASSO 2a: baseline determinístico do ProjectPlan --------------
+    // Garante App.tsx + theme.ts a partir do plano quando a IA não os entregou
+    // e cria um stub .tsx pra cada seção que o App.tsx referencia mas nenhum
+    // arquivo define. Zero chamada de modelo — o que a IA gerou sempre vence.
+    // Deixa os PASSOS 2b/2c/3 abaixo como rede de segurança (viram no-op no
+    // caminho feliz).
+    if (projectPlan) {
+      rawFiles = mergeScaffold(rawFiles, scaffoldSpine(projectPlan, chosenTheme));
+
+      const appNow = rawFiles.find(f => f.name === 'App.tsx' || f.name.endsWith('/App.tsx'));
+      const referenced = [
+        ...new Set(
+          [...(appNow?.content || '').matchAll(/<([A-Z][A-Za-z0-9_]*)\s*\/?>/g)].map(m => m[1]),
+        ),
+      ];
+      const baseNames = new Set(
+        rawFiles.map(f => f.name.replace(/^components\//, '').replace(/\.tsx$/, '')),
+      );
+      const stubs = referenced
+        .filter(n => n !== 'App' && !baseNames.has(n) && !UI_KIT_COMPONENT_NAMES.has(n))
+        .map(n => ({ name: `components/${n}.tsx`, content: sectionStub(n) }));
+      if (stubs.length > 0) {
+        console.log('🩹 [scaffold] stub determinístico p/ seções sem arquivo:', stubs.map(s => s.name));
+        rawFiles.push(...stubs);
+      }
+    }
 
     // -------- PASSO 2b: garantir App.tsx --------
     // O flash às vezes gera só os componentes e "esquece" o App.tsx (e o
@@ -1613,9 +1664,8 @@ app.post('/api/generate', async (req, res) => {
 
     const explanationSection = sections.find(s => s.type === 'EXPLANATION');
 
-    // Tema curado escolhido pra este projeto — o front aplica a mesma paleta
-    // nos tokens do Tailwind do preview e do .zip.
-    const { theme: chosenTheme } = resolveTheme(prompt, plan);
+    // Tema curado (resolvido no PASSO 1.5) — o front aplica a mesma paleta nos
+    // tokens do Tailwind do preview e do .zip.
     const themePayload = {
       id: chosenTheme.id,
       label: chosenTheme.label,
@@ -1644,6 +1694,7 @@ app.post('/api/generate', async (req, res) => {
       brokenFiles,
       warnings,
       theme: themePayload,
+      projectPlan,
       explanation:
         (explanationSection && explanationSection.content.trim()) ||
         'Projeto criado com sucesso pelo Nexa AI.'

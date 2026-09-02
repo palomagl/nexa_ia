@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { nanoid } from 'nanoid';
-import type { Project, Toast, ChatMessage, FileNode, Version, ProjectType, ProjectTheme, User, Workspace } from '../types';
+import type { Project, Toast, ChatMessage, FileNode, Version, ProjectType, ProjectTheme, ProjectPlan, User, Workspace } from '../types';
 import { mockProjects, currentUser, currentWorkspace } from '../data/mockData';
 import { buildFileNodes, upsertFileByPath, removeFileByPath, type GeneratedFile } from '../lib/fileTree';
 
@@ -17,7 +17,7 @@ interface AppState {
   projects: Project[];
   // generatedFiles: lista de arquivos vindos da IA (App.tsx + possíveis
   // components/*.tsx). Cada um vira um FileNode real na árvore do projeto.
-  createProject: (prompt: string, type?: ProjectType, generatedFiles?: GeneratedFile[], explanation?: string, theme?: ProjectTheme) => string;
+  createProject: (prompt: string, type?: ProjectType, generatedFiles?: GeneratedFile[], explanation?: string, theme?: ProjectTheme, plan?: ProjectPlan) => string;
   updateProject: (id: string, patch: Partial<Project>) => void;
   deleteProject: (id: string) => void;
   toggleStar: (id: string) => void;
@@ -57,7 +57,7 @@ export const useStore = create<AppState>((set, get) => ({
   updateWorkspace: patch => set(s => ({ workspace: { ...s.workspace, ...patch } })),
 
   projects: mockProjects,
-  createProject: (prompt, type = 'app', generatedFiles, explanation, theme) => {
+  createProject: (prompt, type = 'app', generatedFiles, explanation, theme, plan) => {
     const id = nanoid();
     const now = new Date().toISOString();
     const name = prompt.length > 40 ? prompt.slice(0, 40).trimEnd() + '…' : prompt;
@@ -84,6 +84,7 @@ export const useStore = create<AppState>((set, get) => ({
       previewGradient: 'from-lavender to-lavender-deep',
       prompt,
       theme,
+      plan,
       files,
       chat: [
         { id: nanoid(), role: 'user', content: prompt, timestamp: now, status: 'sent' },

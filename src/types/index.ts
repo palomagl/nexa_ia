@@ -52,6 +52,35 @@ export interface ProjectTheme {
   radius: string;
 }
 
+/** Plano estruturado (JSON) montado pelo servidor no PASSO 1.5 do /api/generate.
+ *  Fonte do scaffold determinístico — NEXA Engine 2.0, etapa 1. */
+export interface ProjectPlanSection {
+  id: string;
+  name: string;
+  component: string;
+  file: string;
+  purpose: string;
+}
+
+export interface ProjectPlanPage {
+  id: string;
+  name: string;
+  route: string;
+  sections: ProjectPlanSection[];
+}
+
+export interface ProjectPlan {
+  version: number;
+  meta: {
+    prompt: string;
+    themeId: string | null;
+    source: string;
+    generatedAt: string;
+  };
+  pages: ProjectPlanPage[];
+  files: { path: string; role: string; section?: string }[];
+}
+
 export interface Version {
   id: string;
   version: number;
@@ -79,6 +108,7 @@ export interface Project {
   chat: ChatMessage[];
   versions: Version[];
   theme?: ProjectTheme;
+  plan?: ProjectPlan;
 }
 
 export interface Toast {
