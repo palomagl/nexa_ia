@@ -4,152 +4,154 @@
 
 /*
 |--------------------------------------------------------------------------
-| TONS DE ROXO — trocáveis em tempo real via [data-accent] em <html>
+| IDENTIDADE VISUAL — "caderno / scrapbook" (Creme + Lavanda/Sálvia/Rosa)
 |--------------------------------------------------------------------------
 |
-| Cada variável é um "R G B" separado por espaço (padrão do Tailwind pra
-| dar pra usar com opacidade: rgb(var(--nexa-500) / 0.5)). O preset padrão
-| (roxo nexa) fica no :root; os outros presets sobrescrevem as mesmas
-| variáveis quando [data-accent="..."] está presente no <html>.
+| Paleta fixa (referência de design):
+|   Creme #F7F2E6 · Lavanda #C6B6E6 · Sálvia #BCCD9F · Rosa Queimado #E7B6B6
+|   Grafite #2B2B2B (texto)
+| Fontes: Fredoka (títulos) · Caveat (texto anotado) · Inter (interface)
+|
 */
 
 :root {
-  /* Roxo Nexa (padrão) */
-  --nexa-50: 245 240 255;
-  --nexa-100: 237 228 255;
-  --nexa-200: 220 200 255;
-  --nexa-300: 196 163 255;
-  --nexa-400: 168 117 255;
-  --nexa-500: 147 51 234;
-  --nexa-600: 126 34 206;
-  --nexa-700: 103 31 176;
-  --nexa-800: 85 29 143;
-  --nexa-900: 59 22 102;
-  --nexa-950: 37 14 69;
-  --violet-400: 167 139 250;
-  --violet-500: 139 92 246;
-  --violet-600: 124 58 237;
-}
-
-:root[data-accent='violeta'] {
-  --nexa-50: 245 243 255;
-  --nexa-100: 237 233 254;
-  --nexa-200: 221 214 254;
-  --nexa-300: 196 181 253;
-  --nexa-400: 167 139 250;
-  --nexa-500: 139 92 246;
-  --nexa-600: 124 58 237;
-  --nexa-700: 109 40 217;
-  --nexa-800: 91 33 182;
-  --nexa-900: 76 29 149;
-  --nexa-950: 46 16 101;
-  --violet-400: 192 132 252;
-  --violet-500: 168 85 247;
-  --violet-600: 147 51 234;
-}
-
-:root[data-accent='ameixa'] {
-  --nexa-50: 250 245 255;
-  --nexa-100: 243 232 255;
-  --nexa-200: 233 213 255;
-  --nexa-300: 216 180 254;
-  --nexa-400: 192 132 252;
-  --nexa-500: 168 85 247;
-  --nexa-600: 147 51 234;
-  --nexa-700: 126 34 206;
-  --nexa-800: 107 33 168;
-  --nexa-900: 88 28 135;
-  --nexa-950: 59 7 100;
-  --violet-400: 232 121 249;
-  --violet-500: 217 70 239;
-  --violet-600: 192 38 211;
-}
-
-:root[data-accent='profundo'] {
-  --nexa-50: 238 242 255;
-  --nexa-100: 224 231 255;
-  --nexa-200: 199 210 254;
-  --nexa-300: 165 180 252;
-  --nexa-400: 129 140 248;
-  --nexa-500: 99 102 241;
-  --nexa-600: 79 70 229;
-  --nexa-700: 67 56 202;
-  --nexa-800: 55 48 163;
-  --nexa-900: 49 46 129;
-  --nexa-950: 30 27 75;
-  --violet-400: 124 58 237;
-  --violet-500: 109 40 217;
-  --violet-600: 91 33 182;
+  --tape: rgb(214 201 168 / 0.55);
+  --tape-edge: rgb(43 43 43 / 0.06);
 }
 
 @layer base {
   * {
-    @apply border-white/5;
+    border-color: theme('colors.paper.line');
   }
   html { scroll-behavior: smooth; }
   body {
-    @apply bg-bg-900 text-white antialiased;
-    font-feature-settings: "cv11", "ss01";
+    @apply bg-paper text-ink antialiased;
+    font-family: theme('fontFamily.sans');
+    /* grão de papel bem sutil */
+    background-image:
+      radial-gradient(rgb(43 43 43 / 0.015) 1px, transparent 1px);
+    background-size: 3px 3px;
   }
-  ::selection { @apply bg-nexa-500/40 text-white; }
+  h1, h2, h3, h4 {
+    font-family: theme('fontFamily.display');
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  ::selection { background: theme('colors.lavender.DEFAULT'); color: theme('colors.ink.DEFAULT'); }
 
-  /* Scrollbar */
-  ::-webkit-scrollbar { width: 8px; height: 8px; }
-  ::-webkit-scrollbar-track { @apply bg-transparent; }
-  ::-webkit-scrollbar-thumb { @apply bg-bg-600 rounded-full; }
-  ::-webkit-scrollbar-thumb:hover { @apply bg-nexa-700; }
+  ::-webkit-scrollbar { width: 9px; height: 9px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { @apply bg-paper-line2 rounded-full; border: 2px solid theme('colors.paper.DEFAULT'); }
+  ::-webkit-scrollbar-thumb:hover { background: theme('colors.ink.faint'); }
 }
 
 @layer components {
-  .gradient-text {
-    @apply bg-gradient-to-r from-nexa-300 via-violet-400 to-nexa-400 bg-clip-text text-transparent;
-  }
-  .gradient-nexa {
-    background-image: linear-gradient(135deg, rgb(var(--nexa-600)) 0%, rgb(var(--nexa-500)) 40%, rgb(var(--violet-500)) 100%);
-  }
-  .gradient-nexa-soft {
-    background-image: linear-gradient(135deg, rgb(var(--nexa-600) / 0.15) 0%, rgb(var(--nexa-500) / 0.08) 100%);
-  }
+  /* ---- superfícies de papel (aliases: .glass / .glass-strong mantidos) ---- */
+  .paper-card,
   .glass {
-    @apply bg-bg-800/60 backdrop-blur-xl border border-white/5;
+    @apply bg-paper-card border border-paper-line rounded-2xl shadow-paper;
   }
+  .paper-card-strong,
   .glass-strong {
-    @apply bg-bg-800/80 backdrop-blur-2xl border border-white/10;
+    @apply bg-paper-card border border-paper-line2 rounded-2xl shadow-paper-lg;
   }
   .card-hover {
-    @apply transition-all duration-300 hover:border-nexa-500/40 hover:shadow-glow hover:-translate-y-0.5;
+    @apply transition-all duration-200 hover:-translate-y-0.5 hover:shadow-paper-lg hover:border-paper-line2;
   }
+
+  /* ---- botões ---- */
   .btn-primary {
-    @apply gradient-nexa text-white font-semibold rounded-xl px-4 py-2.5 transition-all duration-200 hover:shadow-glow-lg hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed;
+    @apply bg-lavender text-lavender-ink font-display font-medium rounded-xl px-4 py-2.5
+           border border-lavender-deep/40 shadow-paper-sm
+           transition-all duration-150 hover:bg-lavender-deep hover:text-white
+           active:scale-[0.98] disabled:opacity-45 disabled:cursor-not-allowed disabled:hover:bg-lavender disabled:hover:text-lavender-ink;
   }
   .btn-ghost {
-    @apply text-white/70 hover:text-white hover:bg-white/5 rounded-lg px-3 py-2 transition-all duration-200;
+    @apply text-ink/70 font-medium hover:text-ink hover:bg-ink/[0.05] rounded-lg px-3 py-2 transition-all duration-150;
   }
   .btn-outline {
-    @apply border border-white/10 hover:border-nexa-500/50 text-white/80 hover:text-white rounded-xl px-4 py-2.5 transition-all duration-200 hover:bg-nexa-500/5;
+    @apply border border-paper-line2 text-ink/80 font-display font-medium rounded-xl px-4 py-2.5
+           bg-paper-card transition-all duration-150
+           hover:text-ink hover:border-lavender-deep/60 hover:bg-lavender-soft/60 disabled:opacity-45;
   }
+
+  /* ---- input ---- */
   .input-base {
-    @apply bg-bg-800 border border-white/10 rounded-xl px-4 py-2.5 text-white placeholder:text-white/30 focus:outline-none focus:border-nexa-500/50 focus:ring-2 focus:ring-nexa-500/20 transition-all;
+    @apply bg-paper-card border border-paper-line2 rounded-xl px-4 py-2.5 text-ink
+           placeholder:text-ink/40 transition-all
+           focus:outline-none focus:border-lavender-deep/70 focus:ring-2 focus:ring-lavender/40;
   }
+
+  /* ---- navegação (sidebar) ---- */
   .nav-item {
-    @apply flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-white/60 hover:text-white hover:bg-white/5 transition-all duration-200 cursor-pointer;
+    @apply flex items-center gap-3 px-3 py-2.5 rounded-xl text-[15px] font-display font-normal
+           text-ink/65 hover:text-ink hover:bg-ink/[0.04] transition-all duration-150 cursor-pointer;
   }
   .nav-item-active {
-    @apply bg-nexa-500/10 text-white border border-nexa-500/20;
+    @apply bg-lavender-soft text-lavender-ink border border-lavender-deep/30;
   }
-  .skeleton {
-    @apply bg-gradient-to-r from-bg-700 via-bg-600 to-bg-700 bg-[length:1000px_100%] animate-shimmer rounded-lg;
+
+  /* ---- acabamentos herdados (mantidos como alias p/ telas ainda não migradas) ---- */
+  .gradient-text {
+    @apply text-lavender-ink font-display;
   }
-  .glow-border {
-    @apply border border-nexa-500/30 shadow-glow;
+  .gradient-nexa {
+    @apply bg-lavender text-lavender-ink;
   }
-  .glow-dot {
-    @apply relative;
+  .gradient-nexa-soft {
+    @apply bg-lavender-soft;
   }
-  .glow-dot::before {
-    content: '';
-    @apply absolute inset-0 rounded-full blur-md opacity-60 -z-10;
-    background: inherit;
+  .glow-border { @apply border border-lavender-deep/40; }
+  .glow-dot { @apply relative; }
+  .skeleton { @apply bg-paper-sunken rounded-lg animate-pulse; }
+
+  /* ---- fita adesiva (washi) — opt-in num elemento position:relative ---- */
+  .washi { position: relative; }
+  .washi::before {
+    content: "";
+    position: absolute;
+    top: -13px;
+    left: 26px;
+    width: 84px;
+    height: 26px;
+    background: var(--tape);
+    border: 1px solid var(--tape-edge);
+    box-shadow: 0 1px 2px rgb(43 43 43 / 0.08);
+    transform: rotate(-4deg);
+    pointer-events: none;
+  }
+  .washi-right::before { left: auto; right: 26px; transform: rotate(4deg); }
+  .washi-sage::before { background: rgb(188 205 159 / 0.5); }
+  .washi-rose::before { background: rgb(231 182 182 / 0.5); }
+
+  /* ---- texto "escrito à mão" ---- */
+  .hand {
+    font-family: theme('fontFamily.hand');
+    font-weight: 500;
+    letter-spacing: 0.01em;
+  }
+
+  /* ---- sublinhado desenhado à mão (sob títulos) ---- */
+  .doodle-underline {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='10' viewBox='0 0 120 10'%3E%3Cpath d='M2 6 C 30 2, 60 9, 90 4 S 118 3, 118 5' stroke='%23A78FD6' stroke-width='2.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: left bottom;
+    background-size: 100% 8px;
+    padding-bottom: 8px;
+  }
+  .doodle-underline-rose {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='10' viewBox='0 0 120 10'%3E%3Cpath d='M2 6 C 30 2, 60 9, 90 4 S 118 3, 118 5' stroke='%23D69595' stroke-width='2.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: left bottom;
+    background-size: 100% 8px;
+    padding-bottom: 8px;
+  }
+  .doodle-underline-sage {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='10' viewBox='0 0 120 10'%3E%3Cpath d='M2 6 C 30 2, 60 9, 90 4 S 118 3, 118 5' stroke='%239CB278' stroke-width='2.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: left bottom;
+    background-size: 100% 8px;
+    padding-bottom: 8px;
   }
 }
 
@@ -159,4 +161,9 @@
   .mask-fade-b { mask-image: linear-gradient(to bottom, black 80%, transparent 100%); }
   .scrollbar-hide::-webkit-scrollbar { display: none; }
   .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+  html { scroll-behavior: auto; }
 }

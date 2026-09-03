@@ -2,8 +2,6 @@ export type ProjectType = 'website' | 'app' | 'dashboard' | 'prototype';
 export type ProjectStatus = 'draft' | 'building' | 'live' | 'error';
 export type PreviewDevice = 'desktop' | 'tablet' | 'mobile';
 export type FileNodeType = 'file' | 'folder';
-// Tons de roxo trocáveis — ver src/index.css ([data-accent]) e tailwind.config.js
-export type AccentColor = 'roxo' | 'violeta' | 'ameixa' | 'profundo';
 
 export interface User {
   id: string;
@@ -44,6 +42,45 @@ export interface ChatAction {
   detail: string;
 }
 
+/** Tema curado escolhido pelo servidor no passo de planejamento — a mesma
+ *  paleta é aplicada nos tokens do Tailwind do preview e do .zip. */
+export interface ProjectTheme {
+  id: string;
+  label: string;
+  palette: Record<string, string | { DEFAULT: string; foreground: string }>;
+  fonts: { display: string; body: string };
+  radius: string;
+}
+
+/** Plano estruturado (JSON) montado pelo servidor no PASSO 1.5 do /api/generate.
+ *  Fonte do scaffold determinístico — NEXA Engine 2.0, etapa 1. */
+export interface ProjectPlanSection {
+  id: string;
+  name: string;
+  component: string;
+  file: string;
+  purpose: string;
+}
+
+export interface ProjectPlanPage {
+  id: string;
+  name: string;
+  route: string;
+  sections: ProjectPlanSection[];
+}
+
+export interface ProjectPlan {
+  version: number;
+  meta: {
+    prompt: string;
+    themeId: string | null;
+    source: string;
+    generatedAt: string;
+  };
+  pages: ProjectPlanPage[];
+  files: { path: string; role: string; section?: string }[];
+}
+
 export interface Version {
   id: string;
   version: number;
@@ -70,6 +107,8 @@ export interface Project {
   files: FileNode[];
   chat: ChatMessage[];
   versions: Version[];
+  theme?: ProjectTheme;
+  plan?: ProjectPlan;
 }
 
 export interface Toast {

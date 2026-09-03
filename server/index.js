@@ -8,6 +8,26 @@ import Anthropic from '@anthropic-ai/sdk';
 import Groq from 'groq-sdk';
 import { Mistral } from '@mistralai/mistralai';
 import * as Babel from '@babel/standalone';
+import {
+  UI_KIT_FILES,
+  UI_KIT_PATHS,
+  UI_KIT_COMPONENT_NAMES,
+  UI_KIT_MODULES,
+  UI_KIT_CONTRACT,
+} from './uiKit.js';
+import { resolveTheme, renderThemeBlock } from './themes.js';
+import {
+  buildProjectPlan,
+  scaffoldSpine,
+  mergeScaffold,
+  sectionStub,
+} from './projectPlan.js';
+import { enforceModuleIntegrity } from './validateProject.js';
+
+// Arquivos de scaffold que o front já fornece (preview e .zip). Se o modelo
+// gerar algum, ignoramos — sobrescrever o main.tsx/index.css/config quebra
+// o runtime do preview.
+const SCAFFOLD_BLOCKLIST = /^(index\.html|main\.tsx|index\.css|vite-env\.d\.ts|(tailwind|postcss|vite)\.config\.[a-z]+|package(-lock)?\.json|tsconfig[^/]*\.json|\.?gitignore|README\.md)$/i;
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.join(__dirname, '.env') });
@@ -99,19 +119,23 @@ const BUILDER_MODEL = process.env.BUILDER_MODEL || GEMINI_MODEL;
 const REVIEWER_MODEL = process.env.REVIEWER_MODEL || GEMINI_MODEL;
 
 // Passo de auto-revisão depois de montar o app (1 rodada). Melhora o
-// acabamento visual ao custo de +1 chamada de modelo. Desligue com
-// GENERATE_REVIEW_PASS=false se estiver batendo em limite de cota.
-const GENERATE_REVIEW_PASS = process.env.GENERATE_REVIEW_PASS !== 'false';
+// acabamento visual ao custo de +1 chamada de modelo. DESLIGADO por padrão
+// porque no tier grátis cada chamada extra aproxima do 429; ligue com
+// GENERATE_REVIEW_PASS=true quando a chave aguentar.
+const GENERATE_REVIEW_PASS = process.env.GENERATE_REVIEW_PASS === 'true';
 
 // claude-opus-5 é o mais capaz (melhor para código complexo); claude-sonnet-5
 // é bem mais barato (~1/2.5 do preço) e ainda excelente para geração de UI.
 const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || 'claude-opus-5';
-// Modelos gratuitos de bom desempenho para geração de UI/código.
-// Groq descontinua modelos com frequência — se este parar de funcionar,
-// veja os IDs ativos em https://console.groq.com/docs/models ou via
-// GET https://api.groq.com/openai/v1/models (com sua chave).
-const GROQ_MODEL = process.env.GROQ_MODEL || 'openai/gpt-oss-120b';
-const MISTRAL_MODEL = process.env.MISTRAL_MODEL || 'mistral-large-latest';
+// Modelos de FALLBACK — precisam estar no tier GRÁTIS de cada provedor,
+// senão a cadeia toda cai quando o Gemini dá 503/cota.
+// - Groq descontinua modelos com frequência: IDs ativos em
+//   https://console.groq.com/docs/models ou GET /openai/v1/models.
+// - Mistral: mistral-large-latest / mistral-medium exigem plano pago
+//   (403 tier_not_allowed). No tier grátis use mistral-small-latest,
+//   open-mistral-nemo ou open-mistral-7b.
+const GROQ_MODEL = process.env.GROQ_MODEL || 'llama-3.3-70b-versatile';
+const MISTRAL_MODEL = process.env.MISTRAL_MODEL || 'mistral-small-latest';
 
 /*
 |--------------------------------------------------------------------------
@@ -310,6 +334,26 @@ async function* streamFromProvider(provider, prompt, { temperature, model } = {}
   }
 }
 
+// Circuit breaker por provedor. Uma geração faz várias chamadas seguidas
+// (planejar → construir → preencher buracos → revisar); sem isso, cada passo
+// re-tenta um provedor que acabou de dar 403/404/429 e a geração inteira
+// fica presa girando na cadeia morta. Quando um provedor falha com um erro
+// que NÃO passa tentando de novo já-já, ele fica em "cooldown" e os passos
+// seguintes o pulam até o tempo acabar.
+const providerCooldownUntil = new Map();
+
+function providerCooldownMs(error) {
+  const status = error?.status ?? error?.code;
+  if ([401, 403, 404].includes(status)) return 15 * 60_000; // auth / tier / modelo inválido
+  if (status === 413) return 15 * 60_000;                    // payload/limite do modelo
+  if (status === 429) return 90_000;                         // cota / rate limit
+  return 0;                                                  // 5xx e rede: transitório, não penaliza
+}
+
+function isProviderOnCooldown(provider) {
+  return Date.now() < (providerCooldownUntil.get(provider) || 0);
+}
+
 /**
  * Gera texto tentando cada provedor da cadeia em ordem. Se um provedor
  * falhar com erro recuperável, emite um evento `provider_switch` e tenta
@@ -323,29 +367,61 @@ async function* streamModelText(prompt, opts = {}) {
     );
   }
 
+  // Ordem normal, mas empurra pro fim quem está em cooldown. Se TODOS
+  // estiverem, tenta na ordem original mesmo (melhor que não tentar).
+  const ready = ACTIVE_PROVIDER_CHAIN.filter(p => !isProviderOnCooldown(p));
+  const chain = ready.length > 0
+    ? [...ready, ...ACTIVE_PROVIDER_CHAIN.filter(p => isProviderOnCooldown(p))]
+    : [...ACTIVE_PROVIDER_CHAIN];
+
   let lastError = null;
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-  for (let i = 0; i < ACTIVE_PROVIDER_CHAIN.length; i++) {
-    const provider = ACTIVE_PROVIDER_CHAIN[i];
+  for (let i = 0; i < chain.length; i++) {
+    const provider = chain[i];
+    let retried429 = false;
 
-    try {
-      for await (const delta of streamFromProvider(provider, prompt, opts)) {
-        yield { type: 'delta', provider, text: delta };
+    for (;;) {
+      let yielded = false;
+      try {
+        for await (const delta of streamFromProvider(provider, prompt, opts)) {
+          yielded = true;
+          yield { type: 'delta', provider, text: delta };
+        }
+        providerCooldownUntil.delete(provider); // voltou a funcionar
+        return;
+      } catch (error) {
+        lastError = error;
+        const status = error?.status ?? error?.code;
+        const isLast = i === chain.length - 1;
+        const retryable = isRetryableProviderError(error);
+
+        // 429 antes de qualquer token: o rate limit costuma liberar em
+        // segundos. Espera e tenta o MESMO provedor 1x antes de cair pro
+        // fallback (que é mais fraco). Só se nada foi transmitido ainda.
+        if (status === 429 && !retried429 && !yielded) {
+          retried429 = true;
+          console.warn(`⏳ [${provider}] 429 — esperando 20s e tentando de novo...`);
+          await sleep(20_000);
+          continue;
+        }
+
+        const coolMs = providerCooldownMs(error);
+        if (coolMs > 0) {
+          providerCooldownUntil.set(provider, Date.now() + coolMs);
+        }
+
+        console.warn(
+          `⚠️ [${provider}] falhou (${error?.status || error?.code || error?.message || 'erro'}).`,
+          coolMs > 0 ? `Em cooldown por ${Math.round(coolMs / 1000)}s.` : '',
+          !isLast && retryable ? `Tentando "${chain[i + 1]}"...` : 'Sem próximo provedor.'
+        );
+
+        if (!retryable || isLast) throw error;
+
+        yield { type: 'provider_switch', from: provider, to: chain[i + 1] };
+        break; // próximo provedor da cadeia
       }
-      return;
-    } catch (error) {
-      lastError = error;
-      const isLast = i === ACTIVE_PROVIDER_CHAIN.length - 1;
-      const retryable = isRetryableProviderError(error);
-
-      console.warn(
-        `⚠️ [${provider}] falhou (${error?.status || error?.code || error?.message || 'erro'}).`,
-        !isLast && retryable ? `Tentando "${ACTIVE_PROVIDER_CHAIN[i + 1]}"...` : 'Sem próximo provedor.'
-      );
-
-      if (!retryable || isLast) throw error;
-
-      yield { type: 'provider_switch', from: provider, to: ACTIVE_PROVIDER_CHAIN[i + 1] };
     }
   }
 
@@ -379,190 +455,92 @@ async function collectModelText(prompt, { onChunk, ...opts } = {}) {
 |--------------------------------------------------------------------------
 */
 
-const PREVIEW_RUNTIME_CONTRACT = `
+const STANDARD_STACK_CONTRACT = `
 ======================================================================
-RUNTIME DO PREVIEW (OBRIGATÓRIO)
-======================================================================
-
-O código será executado em um iframe com:
-
-- React 18 (objeto global React)
-- ReactDOM 18
-- Babel Standalone com preset React (JSX → React.createElement)
-- Tailwind CSS via CDN
-
-NÃO existe bundler, NÃO existe npm.
-
-Cada arquivo precisa ser JavaScript + JSX válido.
-Mesmo os arquivos se chamando *.tsx, NÃO use TypeScript.
-
-ESTRUTURA OBRIGATÓRIA DE App.tsx:
-
-function App() {
-  // hooks e UI
-  return (
-    ...
-  );
-}
-
-======================================================================
-MÚLTIPLOS ARQUIVOS (quando o app for grande)
+STACK E FORMATO DO CÓDIGO (OBRIGATÓRIO)
 ======================================================================
 
-Você PODE (e para apps com várias seções, DEVE) dividir a aplicação em
-mais de um arquivo — por exemplo App.tsx + components/Header.tsx +
-components/Hero.tsx + components/Footer.tsx — para não precisar gerar
-tudo de uma vez num único arquivo gigante.
+O código roda em um projeto Vite + React 18 + TypeScript + Tailwind CSS
+normal (empacotado pelo Sandpack no preview, exportável como projeto real).
 
-Como isso funciona no runtime do Preview (sem bundler):
+Escreva React + TypeScript PADRÃO:
 
-- TODOS os arquivos são concatenados e executados no MESMO escopo global.
-- Por isso: NÃO use import, NÃO use export, em NENHUM arquivo — nem em
-  App.tsx nem nos demais.
-- Cada arquivo declara um ou mais componentes via "function Nome() { ... }"
-  (nomes de função únicos entre TODOS os arquivos — sem colisão).
-- App.tsx usa os componentes de outros arquivos diretamente pelo nome,
-  como se já estivessem no mesmo arquivo: <Header /> <Hero /> <Footer />
-- App.tsx é sempre o arquivo de entrada e deve declarar function App().
-- Nomeie os demais arquivos como "components/NomeDoComponente.tsx".
-- Se o app for pequeno/simples, é perfeitamente válido manter tudo em um
-  único App.tsx — só divida quando isso realmente ajudar a organizar.
+- Use import / export de verdade (ESM). Nada de escopo global.
+- UM componente principal por arquivo, com "export default".
+- Arquivo de entrada: App.tsx, com "export default function App()".
+- Hooks importados do react: import { useState, useEffect } from 'react'.
+- Tipos TypeScript são bem-vindos, mas mantenha-os simples: um
+  "type Props = { ... }" para as props de cada componente já basta.
+  Nada de generics complicados, decorators ou classes.
 
-DESIGN TOKENS COMPARTILHADOS (quando houver mais de um arquivo):
+ORGANIZAÇÃO DOS ARQUIVOS:
 
-- Crie "components/designTokens.tsx" declarando UMA constante global com a
-  identidade visual — cores (em hex ou classes Tailwind), fontes, raio de
-  borda, sombras, espaçamento. Ex.:
+- Gere SOMENTE: App.tsx, theme.ts e arquivos em components/. NADA MAIS.
+- NÃO gere index.html, src/main.tsx, src/index.css, tailwind.config.*,
+  postcss.config.*, vite.config.*, package.json, tsconfig* — o projeto JÁ
+  vem com tudo isso pronto. Se você gerar, será ignorado.
+- Os caminhos nos marcadores ===FILE:...=== são relativos à pasta src/
+  do projeto — escreva "App.tsx", "components/Header.tsx", "theme.ts"
+  (NÃO escreva "src/App.tsx").
+- App.tsx na raiz; componentes de seção em "components/NomeDaSecao.tsx".
+  Use uma estrutura de pastas RASA — evite components/sections/... ou
+  components/layout/...; deixe tudo em components/ direto.
+- Imports ENTRE os arquivos gerados são relativos:
+  import Header from './components/Header';
+  import { theme } from '../theme';
+- Um único "theme.ts" exporta a identidade visual (paleta, fontes, raio,
+  sombra) como um objeto tipado; todos os componentes importam desse
+  mesmo arquivo — é o que garante coerência visual entre as seções.
+  Ex.: export const theme = { colors: { bg: '#0B0B0F', accent: '#7C5CFF' }, ... } as const;
 
-  const theme = {
-    colors: { bg: "#0B0B0F", surface: "#15151D", text: "#F5F5F7", muted: "#9A9AA8", accent: "#7C5CFF" },
-    font: { display: "'Space Grotesk', sans-serif", body: "'Inter', sans-serif" },
-    radius: "1rem",
-  };
+DEPENDÊNCIAS DISPONÍVEIS:
 
-- TODOS os componentes leem desse mesmo "theme" (ele está no escopo global,
-  use direto pelo nome). Isso força coerência visual entre as seções.
-- Não redefina cores soltas por componente — puxe sempre do "theme".
+- react, react-dom
+- lucide-react  (ícones: import { Menu, X, ArrowRight } from 'lucide-react')
 
-Regras rígidas de compatibilidade (valem para TODOS os arquivos):
-
-- NÃO use import
-- NÃO use export
-- NÃO use export default
-- NÃO use lucide-react
-- NÃO use react-router-dom
-- NÃO use nenhuma biblioteca externa
-- NÃO use interfaces TypeScript
-- NÃO use type aliases
-- NÃO use generics (ex: useState<number>)
-- NÃO use enums
-- NÃO use React.FC
-- NÃO use "as Type" / "as const" / satisfies
-- NÃO use anotações TypeScript (props: Props, : string, : JSX.Element)
-- NÃO use TypeScript que o Babel React não consiga parsear
-
-Como usar React:
-
-- Hooks sempre via objeto React:
-  React.useState
-  React.useEffect
-  React.useMemo
-  React.useCallback
-  React.useRef
-  React.useReducer
-  React.useContext
-  React.useId
-- Fragmentos: React.Fragment ou <>...</>
-- Eventos e JSX padrão do React
+NÃO importe nenhuma outra biblioteca (sem react-router, sem framer-motion,
+sem date libs, etc.) — use React puro para tudo (navegação/abas/modais via
+useState).
 
 ÍCONES:
 
-Não use bibliotecas de ícones.
-Use uma destas opções:
+Prefira lucide-react. SVG inline simples também é permitido. NÃO tente
+desenhar ícones complexos à mão (dezenas de curvas) — é fácil corromper o
+arquivo repetindo coordenadas. Na dúvida, use um ícone do lucide-react.
 
-- emoji quando fizer sentido
-- SVG inline em JSX
-- elementos CSS
-- caracteres Unicode
+IMAGENS (OBRIGATÓRIO):
 
-SVG inline é permitido e recomendado para um visual profissional.
-
-CUIDADO ao escrever o atributo "d" de um <path> de SVG: use ícones SIMPLES
-(poucos comandos, coordenadas curtas — o clássico "menu hamburguer",
-"seta", "X de fechar", "lupa" com poucos pontos). NÃO tente desenhar
-ícones fotorrealistas ou muito detalhados com dezenas de curvas — é fácil
-entrar num loop repetindo o mesmo trecho de números até o arquivo ficar
-corrompido. Na dúvida entre um SVG elaborado e um emoji/Unicode, prefira
-o emoji/Unicode: funciona sempre e nunca corrompe o arquivo.
-
-NAVEGAÇÃO:
-
-Não use rotas reais.
-Simule navegação/páginas/seções com React.useState (tabs, âncoras, menu, views).
-
-IMAGENS (OBRIGATÓRIO — leia com atenção):
-
-NUNCA escreva a URL da imagem você mesmo (nem Unsplash, nem picsum.photos,
-nem nenhuma outra). IDs de foto inventados quase sempre não existem — a
-imagem não carrega e a página fica com buracos.
-
-Em vez disso, use este marcador no lugar do src. O SERVIDOR troca esse
-marcador por uma foto REAL, de banco de imagens de verdade, buscada pelo
-assunto descrito, antes do código chegar no navegador:
+NUNCA escreva a URL da imagem você mesmo (nem Unsplash, nem picsum, nem
+nenhuma). Use este marcador no lugar do src — o SERVIDOR troca por uma
+foto REAL antes de o código chegar no navegador:
 
 {{IMG: descrição curta em inglês do que a foto deveria mostrar}}
 
-Exemplos:
-<img src="{{IMG: cozy coffee shop interior with wooden tables}}" alt="Interior aconchegante da cafeteria" className="w-full h-full object-cover" />
-<img src="{{IMG: handmade ceramic mug on wooden table}}" alt="Caneca de cerâmica artesanal" className="w-full h-full object-cover" />
+Ex.: <img src="{{IMG: cozy coffee shop interior with wooden tables}}" alt="Interior da cafeteria" className="w-full h-full object-cover" />
 
-Regras:
+- Descrição SEMPRE em inglês, curta (3-8 palavras), específica.
+- Cada imagem diferente = descrição diferente.
+- alt em português, descritivo.
+- Sempre object-cover + altura/largura controladas.
 
-- A descrição é SEMPRE em inglês (a busca funciona melhor assim), curta
-  (3-8 palavras) e específica ao que a foto deveria mostrar de verdade —
-  não genérica. Ex.: "black and white realistic tattoo art" é melhor que
-  "tattoo image".
-- Cada imagem diferente precisa de uma descrição diferente.
-- alt continua em português, descritivo.
-- Sempre object-cover + altura/largura controladas (nunca imagem esticada).
-- Se a imagem não for essencial, prefira composição só com CSS/Tailwind
-  em vez de mais uma foto genérica.
+INTERATIVIDADE (botões e links NÃO PODEM "recarregar a página"):
 
-INTERATIVIDADE (OBRIGATÓRIO — botões e links NÃO PODEM "recarregar a página"):
+- Todo <button> que não envia formulário PRECISA de type="button".
+- Todo <form> PRECISA de onSubmit={(e) => { e.preventDefault(); ... }}.
+- PROIBIDO <a href="#"> decorativo — se não há destino real, é uma AÇÃO:
+  use <button type="button" onClick={...}>. Reserve <a> para link externo
+  real (href de URL real, target="_blank" rel="noopener").
+- Todo elemento que parece clicável precisa de um onClick de verdade.
 
-Esse é um erro grave e comum: um clique que reseta todo o estado do app e
-deixa a tela com aparência quebrada por um instante. Siga à risca:
+CONTRASTE E CORES:
 
-- Todo <button> que não deveria enviar formulário PRECISA de type="button".
-  Sem isso, um <button> dentro de um <form> vira type="submit" por padrão
-  do HTML — o navegador tenta enviar o formulário de verdade, a "página"
-  reinicia do zero e todo o estado (menus abertos, abas, contadores) some.
-- Todo <form> DEVE ter onSubmit={(e) => { e.preventDefault(); ...sua lógica... }}.
-  Sem preventDefault, o mesmo problema acontece.
-- PROIBIDO usar <a href="#"> como link "decorativo"/placeholder — se não
-  existe destino real, NÃO é um link, é uma AÇÃO, então use
-  <button type="button" onClick={...}> com uma função de verdade (mesmo
-  que simples, tipo rolar até uma seção ou abrir um modal). Isso vale para
-  CTAs como "Ver todos os produtos", "Saiba mais", itens de menu, ícones
-  sociais sem link real, etc. — todos viram <button>, nunca <a href="#">.
-  Reserve <a> exclusivamente para link externo de verdade, com href sendo
-  uma URL real (não "#") e target="_blank" rel="noopener".
-- Todo elemento clicável que parece interativo (botão, card, ícone de menu)
-  PRECISA ter um onClick de verdade fazendo algo — nunca deixe um botão
-  "decorativo" sem função quando o usuário claramente vai esperar uma ação.
+- Texto sempre com contraste forte sobre o fundo.
+- 1 cor de destaque coerente com o negócio + neutros. Evite 3+ cores
+  vibrantes brigando na mesma tela.
 
-CONTRASTE E CORES (OBRIGATÓRIO):
-
-- Texto sempre com contraste forte sobre o fundo (nunca texto cinza claro
-  sobre fundo branco, nunca texto escuro sobre fundo escuro).
-- Escolha 1 cor de destaque (accent) coerente com o negócio + neutros
-  (branco/preto/tons de cinza). Evite 3+ cores vibrantes brigando entre si
-  na mesma tela.
-
-QUALIDADE NÃO PODE CAIR POR CAUSA DESSAS REGRAS.
-
-Ainda assim você DEVE criar uma aplicação visualmente rica, completa
-e profissional, com múltiplas seções e interatividade real.
+QUALIDADE NÃO PODE CAIR POR CAUSA DESSAS REGRAS. Ainda assim você DEVE
+criar uma aplicação visualmente rica, completa e profissional, com
+múltiplas seções e interatividade real.
 `;
 
 /*
@@ -644,29 +622,39 @@ function writeStreamEvent(res, event) {
 
 /*
 |--------------------------------------------------------------------------
-| VALIDAÇÃO DE SINTAXE — mesmo Babel do Preview, rodado no servidor
+| VALIDAÇÃO DE SINTAXE — parse React + TypeScript, arquivo por arquivo
 |--------------------------------------------------------------------------
 |
-| Com vários arquivos concatenados no mesmo script pro Preview (sem
-| bundler, tudo no mesmo escopo global), UM arquivo com JSX mal formado
-| quebra a aplicação inteira — e a linha do erro que aparece no navegador
-| não bate com o arquivo real, porque o Babel já está processando um
-| "script" gigante com tudo colado. Por isso validamos CADA arquivo aqui,
-| isoladamente, com o MESMO Babel usado no Preview, antes de entregar.
+| O bundler (Sandpack no preview / Vite no export) resolve os imports —
+| mas um único arquivo com JSX ou TS mal formado quebra o build inteiro,
+| com uma mensagem de erro difícil de rastrear. Então checamos CADA
+| arquivo isoladamente com o parser do Babel (preset react + typescript)
+| antes de entregar. É só um teste de sintaxe: não resolvemos imports
+| aqui, só confirmamos que o arquivo faz parse.
 |
 */
 
 const VALIDATABLE_LANGUAGES = new Set(['tsx', 'jsx', 'ts', 'js', undefined]);
+// Só validamos código React/TS pela EXTENSÃO — os arquivos gerados chegam
+// sem `language`, então sem isso o Babel tentaria parsear um .css/.json/.md
+// e marcaria como quebrado sem motivo.
+const CODE_FILE_EXT = /\.(tsx|ts|jsx|js|mjs|cjs)$/i;
 
 function validateFileSyntax(file) {
+  const name = file.name || 'App.tsx';
+  if (!CODE_FILE_EXT.test(name)) {
+    return { valid: true };
+  }
   if (file.language && !VALIDATABLE_LANGUAGES.has(file.language)) {
     return { valid: true };
   }
 
   try {
+    // filename com .tsx liga o parse de JSX no preset-typescript do Babel 8;
+    // .ts / .js não ativam JSX (correto pra um theme.ts só com objeto).
     Babel.transform(file.content || '', {
-      presets: [['react', { runtime: 'classic' }]],
-      filename: file.name || 'App.jsx'
+      presets: [['react', { runtime: 'automatic' }], 'typescript'],
+      filename: file.name || 'App.tsx'
     });
     return { valid: true };
   } catch (error) {
@@ -695,9 +683,9 @@ sem fechar, chave/parêntese faltando por falta de espaço). Se for esse o
 caso, COMPLETE o arquivo de forma coerente com o que já existe — feche
 todas as tags e blocos, termine a seção que ficou pela metade.
 
-Regras (mesmas de sempre): sem import, sem export, sem TypeScript, sem
-libs externas, ícones via SVG/emoji/Unicode. Mantenha o mesmo design e
-conteúdo, só termine/corrija o que está quebrado.
+Regras (mesmas de sempre): React + TypeScript padrão, com import/export
+reais; só react/react-dom/lucide-react como libs. Mantenha o mesmo design
+e conteúdo, só termine/corrija o que está quebrado.
 
 Responda em TEXTO PURO, sem JSON, sem \`\`\`, usando exatamente:
 
@@ -803,13 +791,34 @@ Um passo de planejamento já definiu a arquitetura, o design system e a
 lista de arquivos desta aplicação. Você DEVE seguir este plano:
 
 - Gere EXATAMENTE os arquivos listados no plano (mesmos caminhos), mais
-  o components/designTokens.tsx com o design system descrito.
+  o theme.ts com o design system descrito (objeto exportado, importado
+  pelos componentes).
 - Use a paleta, as fontes e o tom definidos no plano — não invente outra
   identidade visual.
 - Cada seção do plano precisa aparecer, completa, no app final.
 
 ${plan}
 `;
+}
+
+// Lint leve de qualidade: acusa os problemas mais comuns que passam pela
+// validação de sintaxe mas deixam o resultado com cara de rascunho. Não
+// corrige — só devolve avisos pro log e pro cliente.
+function lintGeneratedFiles(files) {
+  const warnings = [];
+  const PLACEHOLDER = /lorem ipsum|seu texto aqui|t[íi]tulo da se[çc][aã]o|bem-vindo ao nosso site|texto de exemplo|conte[úu]do aqui|placeholder text/i;
+
+  for (const f of files) {
+    if (!CODE_FILE_EXT.test(f.name)) continue;
+    const c = f.content || '';
+    if (/href\s*=\s*["']#["']/.test(c)) warnings.push(`${f.name}: <a href="#"> (link decorativo — devia ser <button>)`);
+    if (/\{\{IMG:/.test(c)) warnings.push(`${f.name}: marcador {{IMG:}} não resolvido`);
+    if (PLACEHOLDER.test(c)) warnings.push(`${f.name}: texto-placeholder ("${(c.match(PLACEHOLDER) || [''])[0]}")`);
+    if (/<form(\s|>)/.test(c) && !/onSubmit=/.test(c)) warnings.push(`${f.name}: <form> sem onSubmit (recarrega a página ao enviar)`);
+    const badUi = findBadUiImports(c);
+    if (badUi.length) warnings.push(`${f.name}: importa ./ui/${badUi.join(', ./ui/')} — não existe no kit (quebra o preview)`);
+  }
+  return warnings;
 }
 
 function createGeneratePrompt(prompt, attachment, plan) {
@@ -827,7 +836,95 @@ ${buildAttachmentInstructions(attachment)}
 
 ${buildPlanInstructions(plan)}
 
-${PREVIEW_RUNTIME_CONTRACT}
+${STANDARD_STACK_CONTRACT}
+${UI_KIT_CONTRACT}
+
+======================================================================
+TIPOGRAFIA (as fontes do tema já estão carregadas)
+======================================================================
+
+- NÃO adicione <link>, @import ou <style> de fonte — o preview e o export
+  já carregam as fontes do tema.
+- Títulos e números de destaque: classe "font-display".
+- O corpo já herda a fonte de texto do tema (não precisa fazer nada).
+- Hierarquia clara: h1 do hero grande (text-4xl a text-6xl, font-semibold/bold,
+  tracking-tight), h2 de seção text-3xl md:text-4xl, corpo text-base
+  text-muted-foreground, labels/eyebrows text-xs uppercase tracking-wide.
+
+======================================================================
+MODELO DE REFERÊNCIA DA ESTRUTURA (copie a FORMA, troque o conteúdo)
+======================================================================
+
+--- theme.ts ---
+export const theme = {
+  name: 'Aurora',
+  tagline: 'Café de especialidade no coração da cidade',
+  accent: '#a8551f',
+} as const;
+
+--- App.tsx ---
+import { useState } from 'react';
+import Header from './components/Header';
+import Hero from './components/Hero';
+import Menu from './components/Menu';
+import Contact from './components/Contact';
+import Footer from './components/Footer';
+
+export default function App() {
+  const [menuOpen, setMenuOpen] = useState(false);
+  return (
+    <div className="min-h-screen bg-background text-foreground antialiased">
+      <Header menuOpen={menuOpen} onToggle={() => setMenuOpen((v) => !v)} />
+      <main>
+        <Hero />
+        <Menu />
+        <Contact />
+      </main>
+      <Footer />
+    </div>
+  );
+}
+
+--- components/Menu.tsx ---
+import { Tabs, TabsList, TabsTrigger, TabsContent } from './ui/tabs';
+import { Card, CardContent } from './ui/card';
+
+const cafes = [
+  { name: 'Espresso de origem única', price: 'R$ 9', note: 'Notas de cacau e caramelo, torra média.' },
+  // 5-8 itens REAIS, com nome, preço e descrição de verdade
+];
+
+export default function Menu() {
+  return (
+    <section id="cardapio" className="mx-auto max-w-6xl px-6 py-24">
+      <p className="text-xs font-medium uppercase tracking-wide text-accent">Cardápio</p>
+      <h2 className="mt-2 font-display text-3xl font-semibold md:text-4xl">Torrados aqui, todo dia</h2>
+      <Tabs defaultValue="cafes" className="mt-10">
+        <TabsList>
+          <TabsTrigger value="cafes">Cafés</TabsTrigger>
+          <TabsTrigger value="doces">Doces</TabsTrigger>
+        </TabsList>
+        <TabsContent value="cafes" className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {cafes.map((c) => (
+            <Card key={c.name}>
+              <CardContent className="pt-6">
+                <div className="flex items-baseline justify-between gap-3">
+                  <h3 className="font-medium">{c.name}</h3>
+                  <span className="font-semibold text-accent">{c.price}</span>
+                </div>
+                <p className="mt-2 text-sm text-muted-foreground">{c.note}</p>
+              </CardContent>
+            </Card>
+          ))}
+        </TabsContent>
+      </Tabs>
+    </section>
+  );
+}
+
+Observe: seção = <section> com id, mx-auto max-w-6xl px-6, py-20/24 de
+respiro vertical; eyebrow + h2 font-display; dados em array no topo do
+arquivo com conteúdo real; componentes do kit para cards/abas/formulário.
 
 ======================================================================
 OBJETIVO
@@ -939,8 +1036,8 @@ Adapte de verdade:
 - botões e CTAs
 - largura máxima do conteúdo (ex: max-w-6xl mx-auto)
 
-(Regras de imagem, interatividade e cor já estão na seção RUNTIME DO
-PREVIEW acima — siga-as à risca, especialmente a do marcador {{IMG: ...}}.)
+(Regras de imagem, interatividade e cor já estão no contrato da STACK
+acima — siga-as à risca, especialmente a do marcador {{IMG: ...}}.)
 
 ======================================================================
 QUALIDADE
@@ -969,12 +1066,12 @@ ESCALA (dimensione ao pedido)
 ======================================================================
 
 - Pedido simples (1 landing, 1 tela): 4 a 6 arquivos
-  (App.tsx + designTokens.tsx + 2-4 componentes de seção).
+  (App.tsx + theme.ts + 2-4 componentes de seção).
 - App / dashboard / site com várias páginas ou seções: 8 a 14 arquivos,
   um componente por seção/tela, cada um no seu arquivo.
 - NUNCA entregue tudo num App.tsx só quando o app tem 3+ seções.
-- App.tsx deve ser basicamente a composição: layout + <Header/> <Hero/>
-  <Secao/>... <Footer/>, com o estado de navegação/tema no topo.
+- App.tsx importa e compõe: layout + <Header/> <Hero/> <Secao/>... <Footer/>,
+  com o estado de navegação no topo passado por props aos componentes.
 
 ======================================================================
 FORMATO DA RESPOSTA
@@ -983,19 +1080,28 @@ FORMATO DA RESPOSTA
 NÃO retorne JSON. NÃO use blocos de código Markdown (\`\`\`).
 
 Retorne TEXTO PURO usando exatamente estes marcadores, cada um sozinho
-em sua própria linha. Use UM bloco ===FILE:caminho=== por arquivo — pode
-ter só App.tsx, ou App.tsx + vários components/Nome.tsx (veja a seção
-MÚLTIPLOS ARQUIVOS acima):
+em sua própria linha. Use UM bloco ===FILE:caminho=== por arquivo — o
+caminho é relativo a src/ (ex.: App.tsx, theme.ts, components/Header.tsx):
 
 ===EXPLANATION===
 Descrição curta da aplicação criada (1-2 frases).
+===FILE:theme.ts===
+export const theme = {
+  colors: { bg: '#ffffff', text: '#0a0a0a', accent: '#6d28d9' },
+} as const;
 ===FILE:App.tsx===
-function App() {
-  ...código completo, sem import, sem export...
+import Header from './components/Header';
+
+export default function App() {
+  return (
+    <div>
+      <Header />
+    </div>
+  );
 }
 ===FILE:components/Header.tsx===
-function Header() {
-  ...
+export default function Header() {
+  return <header>...</header>;
 }
 ===END===
 
@@ -1004,12 +1110,11 @@ Regras:
 - Os marcadores ===EXPLANATION===, ===FILE:caminho=== e ===END=== devem
   aparecer exatamente assim, sozinhos na linha, sem texto extra.
 - O conteúdo entre cada ===FILE:...=== e o próximo marcador é o
-  código-fonte PURO desse arquivo, sem escaping, sem aspas duplicadas,
-  exatamente como um arquivo .tsx.
+  código-fonte PURO desse arquivo, sem escaping, exatamente como um .tsx.
 - NÃO coloque \`\`\` em nenhum lugar da resposta.
-- App.tsx deve começar com function App() e NÃO deve conter import nem export.
-- Se dividir em mais arquivos, cada um também sem import/export (ver regras
-  de MÚLTIPLOS ARQUIVOS acima).
+- App.tsx tem "export default function App()" e importa os demais arquivos
+  por caminho relativo (./components/..., ./theme).
+- Cada componente tem seu próprio "export default".
 
 ======================================================================
 IMPORTANTE
@@ -1038,14 +1143,15 @@ Crie uma experiência visual completa baseada no pedido.
 |
 */
 
-// Versão enxuta das regras de compatibilidade — usada nos passos internos
-// (regenerar arquivo, revisar), onde reembutir o contrato inteiro só gasta
-// orçamento de tokens à toa.
-const COMPAT_RULES_SHORT = `
-REGRAS DE COMPATIBILIDADE (runtime sem bundler, tudo no mesmo escopo global):
-- SEM import, SEM export, SEM TypeScript (nada de : tipos, interface, generics, "as").
-- Hooks via objeto React (React.useState, React.useEffect, ...).
-- Ícones: SVG inline simples, emoji ou Unicode — nunca lucide-react.
+// Versão enxuta das regras da stack — usada nos passos internos (regenerar
+// arquivo, revisar), onde reembutir o contrato inteiro só gasta orçamento
+// de tokens à toa.
+const STACK_RULES_SHORT = `
+REGRAS DA STACK (Vite + React 18 + TypeScript + Tailwind, empacotado de verdade):
+- React + TS PADRÃO: import/export ESM, "export default" por componente, hooks do 'react'.
+- Caminhos relativos a src/ (App.tsx, theme.ts, components/X.tsx); imports entre arquivos relativos (./components/X, ../theme).
+- Libs: só react, react-dom, lucide-react. Nada além disso.
+- Ícones: lucide-react (ou SVG inline simples).
 - Imagens: use o marcador {{IMG: descrição curta em inglês}} no src, nunca URL própria.
 - Todo <button> não-submit precisa de type="button"; todo <form> precisa de onSubmit com e.preventDefault().
 - Nada de <a href="#"> — ação é <button type="button" onClick>.
@@ -1057,31 +1163,37 @@ REGRAS DE COMPATIBILIDADE (runtime sem bundler, tudo no mesmo escopo global):
 // prompt de construção.
 async function planProject(prompt, attachment) {
   const planPrompt = `
-Você é um diretor de arte + arquiteto frontend. NÃO escreva código agora.
-Planeje uma aplicação React (single-page, roda em iframe com Tailwind) para
-o pedido abaixo.
+Você é um diretor de conteúdo + arquiteto frontend. NÃO escreva código agora.
+Faça o BRIEF de uma aplicação React single-page para o pedido abaixo. A
+paleta e a tipografia serão definidas depois por um tema curado — foque no
+NEGÓCIO, no CONTEÚDO de cada seção e na lista de arquivos.
 
 PEDIDO:
 ${prompt}
 ${attachment && attachment.name ? `\n(O usuário anexou a imagem "${attachment.name}".)` : ''}
 
-Responda em TEXTO PURO, curto e direto, com estas 4 seções e nada mais:
+Responda em TEXTO PURO, direto, com estas seções e nada mais:
 
 ===PLAN===
-NEGÓCIO: nome fictício + 1 frase de posicionamento + tom de voz.
+NEGÓCIO: nome fictício + 1 frase de posicionamento + público + tom de voz.
 
-DESIGN SYSTEM:
-- paleta: bg, surface, texto, texto-mudo, 1 cor de destaque (valores hex)
-- fontes: 1 par (display + corpo), nomes de Google Fonts reais
-- personalidade visual: raio de borda, uso de sombra, densidade, 2-3 adjetivos
+SEÇÕES (ordem de cima pra baixo — para CADA uma, 1-2 linhas de conteúdo
+CONCRETO: qual headline, quais itens/dados reais, qual CTA):
+- Header — links e CTA
+- Hero — headline + subtexto + CTA principal
+- <seção> — ...
+- Footer — colunas e o que vai em cada
 
-ARQUIVOS (caminho — responsabilidade em 1 linha):
-- App.tsx — composição + estado de navegação/tema
-- components/designTokens.tsx — a constante theme com o design system acima
-- components/<Nome>.tsx — <seção> ...
-(liste TODOS: 4-6 arquivos p/ landing simples, 8-14 p/ app com várias seções)
+IMAGENS: liste só as seções que precisam de foto e, para cada, um assunto
+curto em inglês (ex.: "Hero: cozy specialty coffee bar interior").
+Se o negócio não precisar de fotos, escreva "nenhuma".
 
-SEÇÕES (ordem de cima pra baixo na tela): lista curta.
+ARQUIVOS (caminho relativo a src/ — responsabilidade em 1 linha):
+- App.tsx — composição + estado de navegação
+- theme.ts — objeto theme (nome, tagline, accent)
+- components/<Nome>.tsx — <seção>
+(4-6 arquivos p/ landing simples, 8-14 p/ app com várias seções; pasta
+components/ rasa)
 ===END===
 `;
 
@@ -1101,7 +1213,13 @@ SEÇÕES (ordem de cima pra baixo na tela): lista curta.
   const planSection = sections.find(s => s.type === 'PLAN');
   // Se o planner não seguiu o formato, usa o texto cru mesmo — ainda serve
   // de norte pro passo de construção. Só não deixa passar vazio.
-  return (planSection && planSection.content.trim()) || text.trim();
+  const planBody = (planSection && planSection.content.trim()) || text.trim();
+
+  // Escolhe um tema curado pelo pedido + o que o planner descreveu, e crava
+  // os valores no plano — o builder passa a usar paleta/tipografia prontas
+  // em vez de inventar do zero.
+  const { theme } = resolveTheme(prompt, planBody);
+  return `${planBody}\n${renderThemeBlock(theme)}`;
 }
 
 // PASSO 3 — regenera UM arquivo que faltou ou veio vazio, dando o plano e os
@@ -1112,18 +1230,18 @@ async function regenerateMissingFile(filePath, prompt, plan, existingFiles) {
     .join('\n\n');
 
   const filePrompt = `
-${COMPAT_RULES_SHORT}
+${STACK_RULES_SHORT}
 
 Você está completando uma aplicação React que já foi parcialmente gerada.
 PEDIDO ORIGINAL: ${prompt}
 
 ${plan ? `PLANO:\n${plan}\n` : ''}
-ARQUIVOS JÁ EXISTENTES (não reescreva, só use os nomes/o theme deles):
+ARQUIVOS JÁ EXISTENTES (não reescreva, só importe deles pelo caminho relativo):
 ${context}
 
 Falta gerar SÓ este arquivo: ${filePath}
-Gere-o completo, coerente com o design e o theme dos arquivos acima, sem
-import/export, sem TypeScript.
+Gere-o completo, com import/export normais, coerente com o design e o
+theme dos arquivos acima. Importe o que precisar deles por caminho relativo.
 
 Responda em TEXTO PURO, exatamente:
 
@@ -1144,6 +1262,55 @@ código completo
   return null;
 }
 
+// Detecta imports de "./ui/<x>" / "../ui/<x>" que o kit NÃO tem. Um import
+// desses passa na validação de sintaxe mas mata o bundle inteiro do preview.
+function findBadUiImports(content) {
+  const bad = new Set();
+  const re = /from\s+['"]\.{1,2}\/(?:components\/)?ui\/([a-z0-9-]+)['"]/g;
+  let m;
+  while ((m = re.exec(content || ''))) {
+    if (!UI_KIT_MODULES.has(m[1])) bad.add(m[1]);
+  }
+  return [...bad];
+}
+
+// Regenera UM arquivo trocando os imports inválidos de ./ui/* por
+// implementação inline (o kit não vai ter todo componente do shadcn).
+async function fixBadUiImports(file, badModules, existingFiles) {
+  const kitList = [...UI_KIT_MODULES].join(', ');
+  const fixPrompt = `
+${STACK_RULES_SHORT}
+
+O arquivo abaixo importa de ./ui/${badModules.join(', ./ui/')} — mas esses
+NÃO existem no projeto. O kit em ./ui/ só tem: ${kitList}.
+
+Reescreva o arquivo INTEIRO removendo esses imports. Onde usava o
+componente que não existe, implemente o comportamento inline no próprio
+arquivo com useState + Tailwind (ex.: um <select> nativo, um dropdown com
+estado, um carrossel simples). Mantenha o mesmo design, conteúdo e as
+props. Pode continuar usando os componentes do kit que EXISTEM.
+
+ARQUIVO (${file.name}):
+${file.content}
+
+Responda em TEXTO PURO, exatamente:
+
+===FILE:${file.name}===
+código completo corrigido
+===END===
+`;
+  try {
+    const text = await collectModelText(fixPrompt, { temperature: 0.3, model: BUILDER_MODEL });
+    const section = parseDelimitedResponse(text).find(s => s.type === 'FILE');
+    if (section && section.content.trim() && findBadUiImports(section.content).length === 0) {
+      return { ...file, content: section.content.trim() };
+    }
+  } catch (e) {
+    console.warn(`⚠️ Falha ao corrigir imports de ${file.name}:`, e.message);
+  }
+  return null;
+}
+
 // PASSO 4 — auto-revisão de UI. Recebe o app montado, devolve SÓ os arquivos
 // que valeu a pena mexer (0+). Uma rodada só.
 async function reviewProject(prompt, plan, files) {
@@ -1151,9 +1318,9 @@ async function reviewProject(prompt, plan, files) {
   // o design system e a composição/ritmo do App.tsx. Rever todos os
   // componentes um a um faz o flash regenerar tudo e a geração leva minutos.
   // Os demais arquivos vão só como contexto de leitura (não pra reescrever).
-  // Só o App.tsx é reescrevível na revisão. Mexer no designTokens.tsx é
-  // arriscado (renomear uma chave do theme quebra todos os componentes que
-  // a usam, sem erro de sintaxe) e mexer nos componentes um a um é lento.
+  // Só o App.tsx é reescrevível na revisão. Mexer no theme.ts é arriscado
+  // (renomear uma chave do theme quebra todos os componentes que a importam,
+  // sem erro de sintaxe) e mexer nos componentes um a um é lento.
   const isEditable = f => f.name.endsWith('App.tsx');
 
   const editable = files.filter(isEditable);
@@ -1169,10 +1336,10 @@ async function reviewProject(prompt, plan, files) {
     .join('\n\n');
 
   const reviewPrompt = `
-${COMPAT_RULES_SHORT}
+${STACK_RULES_SHORT}
 
 Você é um diretor de design fazendo a revisão final de coesão desta
-aplicação React. Mantenha as regras de compatibilidade acima.
+aplicação React. Mantenha as regras da stack acima (import/export reais).
 
 PEDIDO ORIGINAL: ${prompt}
 ${plan ? `\nPLANO:\n${plan}\n` : ''}
@@ -1268,10 +1435,30 @@ app.post('/api/generate', async (req, res) => {
       }
     }
 
+    // -------- PASSO 1.5: ProjectPlan estruturado (Engine 2.0 — etapa 1) -----
+    // Estrutura o texto de plano num objeto JSON e resolve o tema já aqui. É a
+    // fonte do scaffold determinístico no PASSO 2a. Nunca bloqueia a geração.
+    const { theme: chosenTheme } = resolveTheme(prompt, plan);
+    let projectPlan = null;
+    try {
+      writeStreamEvent(res, { type: 'phase', phase: 'structuring', label: 'Estruturando o projeto...' });
+      projectPlan = buildProjectPlan({ prompt, planText: plan, theme: chosenTheme });
+      console.log(
+        '🧩 ProjectPlan: %d seção(ões) [%s], fonte=%s',
+        projectPlan.pages[0].sections.length,
+        projectPlan.pages[0].sections.map(s => s.component).join(', '),
+        projectPlan.meta.source,
+      );
+    } catch (planStructError) {
+      console.warn('⚠️ Falha ao estruturar o ProjectPlan (seguindo sem scaffold):', planStructError.message);
+    }
+
     // -------- PASSO 2: construir --------
     writeStreamEvent(res, { type: 'phase', phase: 'building', label: 'Gerando os arquivos do projeto...' });
+    const buildPrompt = createGeneratePrompt(prompt, attachment, plan);
+    console.log('🧱 Prompt de construção: %d chars (~%d tokens)', buildPrompt.length, Math.round(buildPrompt.length / 4));
     for await (const event of streamModelText(
-      createGeneratePrompt(prompt, attachment, plan),
+      buildPrompt,
       { temperature: 0.7, model: BUILDER_MODEL }
     )) {
       if (event.type === 'provider_switch') {
@@ -1294,11 +1481,50 @@ app.post('/api/generate', async (req, res) => {
 
     let rawFiles = fileSections.map(s => ({
       // Normaliza o caminho: o modelo às vezes escreve "src/components/X.tsx",
-      // às vezes "components/X.tsx". Padronizamos sem o "src/" (é o que o
-      // contrato de runtime usa e o que o Preview espera).
+      // às vezes "components/X.tsx". Padronizamos sem o "src/" — o front
+      // recoloca o prefixo ao montar o bundle do Sandpack.
       name: (s.arg || 'App.tsx').replace(/^\.?\/*(src\/)?/, ''),
       content: s.content.trim()
     }));
+
+    // Descarta arquivos de scaffold que o modelo insistiu em gerar — o front
+    // já fornece index.html/main.tsx/index.css/configs.
+    const droppedScaffold = rawFiles.filter(f => SCAFFOLD_BLOCKLIST.test(f.name)).map(f => f.name);
+    if (droppedScaffold.length) console.log('🧹 Ignorando scaffold gerado pelo modelo:', droppedScaffold);
+    rawFiles = rawFiles.filter(f => !SCAFFOLD_BLOCKLIST.test(f.name));
+
+    // Injeta a biblioteca de componentes (Nexa UI kit, estilo shadcn) —
+    // ela vai junto em todo projeto. Se o modelo tentou reescrever algum
+    // arquivo do kit, a versão canônica ganha.
+    rawFiles = rawFiles.filter(f => !UI_KIT_PATHS.has(f.name));
+    rawFiles.push(...UI_KIT_FILES.map(f => ({ ...f })));
+
+    // -------- PASSO 2a: baseline determinístico do ProjectPlan --------------
+    // Garante App.tsx + theme.ts a partir do plano quando a IA não os entregou
+    // e cria um stub .tsx pra cada seção que o App.tsx referencia mas nenhum
+    // arquivo define. Zero chamada de modelo — o que a IA gerou sempre vence.
+    // Deixa os PASSOS 2b/2c/3 abaixo como rede de segurança (viram no-op no
+    // caminho feliz).
+    if (projectPlan) {
+      rawFiles = mergeScaffold(rawFiles, scaffoldSpine(projectPlan, chosenTheme));
+
+      const appNow = rawFiles.find(f => f.name === 'App.tsx' || f.name.endsWith('/App.tsx'));
+      const referenced = [
+        ...new Set(
+          [...(appNow?.content || '').matchAll(/<([A-Z][A-Za-z0-9_]*)\s*\/?>/g)].map(m => m[1]),
+        ),
+      ];
+      const baseNames = new Set(
+        rawFiles.map(f => f.name.replace(/^components\//, '').replace(/\.tsx$/, '')),
+      );
+      const stubs = referenced
+        .filter(n => n !== 'App' && !baseNames.has(n) && !UI_KIT_COMPONENT_NAMES.has(n))
+        .map(n => ({ name: `components/${n}.tsx`, content: sectionStub(n) }));
+      if (stubs.length > 0) {
+        console.log('🩹 [scaffold] stub determinístico p/ seções sem arquivo:', stubs.map(s => s.name));
+        rawFiles.push(...stubs);
+      }
+    }
 
     // -------- PASSO 2b: garantir App.tsx --------
     // O flash às vezes gera só os componentes e "esquece" o App.tsx (e o
@@ -1310,17 +1536,42 @@ app.post('/api/generate', async (req, res) => {
       if (appFileGen) {
         rawFiles.unshift(appFileGen);
       } else {
-        // Fallback mínimo: compõe todos os componentes conhecidos em ordem.
+        // Fallback mínimo: importa e compõe todos os componentes conhecidos.
         const comps = rawFiles
-          .map(f => f.name.replace(/^components\//, '').replace(/\.tsx$/, ''))
-          .filter(n => n !== 'designTokens');
+          .filter(f => /^components\/[A-Z][A-Za-z0-9_]*\.tsx$/.test(f.name))
+          .map(f => f.name.replace(/^components\//, '').replace(/\.tsx$/, ''));
         rawFiles.unshift({
           name: 'App.tsx',
           content:
-            `function App() {\n  return (\n    <div>\n` +
+            comps.map(c => `import ${c} from './components/${c}';`).join('\n') +
+            `\n\nexport default function App() {\n  return (\n    <div>\n` +
             comps.map(c => `      <${c} />`).join('\n') +
-            `\n    </div>\n  );\n}`,
+            `\n    </div>\n  );\n}\n`,
         });
+      }
+    }
+
+    // -------- PASSO 2c: corrigir imports de ./ui/* que não existem --------
+    // O modelo conhece o shadcn inteiro e às vezes pede um componente que
+    // o kit não empacota (./ui/select, ./ui/carousel...). Isso passa na
+    // validação de sintaxe mas mata o bundle do preview. Reescreve só os
+    // arquivos afetados (no máx. 3), inlinando o que faltava.
+    {
+      const withBadUi = rawFiles
+        .filter(f => !UI_KIT_PATHS.has(f.name) && CODE_FILE_EXT.test(f.name))
+        .map(f => ({ file: f, bad: findBadUiImports(f.content) }))
+        .filter(x => x.bad.length > 0)
+        .slice(0, 3);
+      if (withBadUi.length > 0) {
+        console.log('🩹 Imports de ./ui/* inexistentes, corrigindo:', withBadUi.flatMap(x => x.bad));
+        writeStreamEvent(res, { type: 'phase', phase: 'building', label: 'Ajustando componentes...' });
+        for (const { file, bad } of withBadUi) {
+          const fixed = await fixBadUiImports(file, bad, rawFiles);
+          if (fixed) {
+            const i = rawFiles.findIndex(f => f.name === file.name);
+            if (i >= 0) rawFiles[i] = fixed;
+          }
+        }
       }
     }
 
@@ -1337,15 +1588,16 @@ app.post('/api/generate', async (req, res) => {
       rawFiles.map(f => f.name.replace(/^components\//, '').replace(/\.tsx$/, ''))
     );
 
-    // Componentes que o App.tsx usa mas nenhum arquivo declara.
+    // Componentes que o App.tsx usa mas nenhum arquivo declara (os do UI kit
+    // já existem — não conte <Button/>, <Card/>, <Tabs/> como buraco).
     let missing = [...new Set(referencedComponents)]
-      .filter(name => !haveComponentBaseNames.has(name) && name !== 'App')
+      .filter(name => !haveComponentBaseNames.has(name) && name !== 'App' && !UI_KIT_COMPONENT_NAMES.has(name))
       .map(name => `components/${name}.tsx`)
       .filter(p => !haveNames.has(p));
 
-    // Rede de segurança: se mesmo assim só veio o App.tsx, puxa os primeiros
-    // arquivos do plano.
-    if (rawFiles.length <= 1) {
+    // Rede de segurança: se mesmo assim só veio o App.tsx (fora o UI kit),
+    // puxa os primeiros arquivos do plano.
+    if (rawFiles.filter(f => !UI_KIT_PATHS.has(f.name)).length <= 1) {
       const fromPlan = extractPlannedPaths(plan).filter(
         p => p !== 'App.tsx' && !haveNames.has(p)
       );
@@ -1401,7 +1653,33 @@ app.post('/api/generate', async (req, res) => {
     );
 
     console.log('🔍 Validando sintaxe dos arquivos...');
-    const { files, brokenFiles } = await validateAndFixFiles(filesWithImages);
+    const { files: syntaxCheckedFiles, brokenFiles: syntaxBrokenFiles } =
+      await validateAndFixFiles(filesWithImages);
+
+    // -------- Validation V1: integridade de módulos (Camada A, estática) -----
+    // Sem executar nada e sem chamar modelo: análise de escopo + grafo de
+    // imports. Auto-importa nomes conhecidos (kit / react / lucide), e o portão
+    // troca seções irrecuperáveis por um stub determinístico pra o Preview
+    // MONTAR em vez de dar tela branca. Não toca no ProjectPlan/scaffold.
+    const integrity = enforceModuleIntegrity(
+      syntaxCheckedFiles,
+      syntaxBrokenFiles.map(b => b.name),
+    );
+    const files = integrity.files;
+    const brokenFiles = [
+      ...new Map(
+        [...syntaxBrokenFiles, ...integrity.broken, ...integrity.stubbed].map(b => [b.name, b]),
+      ).values(),
+    ];
+    if (integrity.fixed.length > 0) {
+      console.log('🔧 [integridade] imports adicionados automaticamente:', integrity.fixed);
+    }
+    if (integrity.stubbed.length > 0) {
+      console.log(
+        '🧩 [integridade] seções irrecuperáveis viraram stub:',
+        integrity.stubbed.map(s => `${s.name} (${s.error})`),
+      );
+    }
 
     const appFile =
       files.find(f => f.name === 'App.tsx' || f.name.endsWith('App.tsx')) ||
@@ -1413,18 +1691,37 @@ app.post('/api/generate', async (req, res) => {
 
     const explanationSection = sections.find(s => s.type === 'EXPLANATION');
 
+    // Tema curado (resolvido no PASSO 1.5) — o front aplica a mesma paleta nos
+    // tokens do Tailwind do preview e do .zip.
+    const themePayload = {
+      id: chosenTheme.id,
+      label: chosenTheme.label,
+      palette: chosenTheme.palette,
+      fonts: chosenTheme.fonts,
+      radius: chosenTheme.radius,
+    };
+
+    const warnings = [...lintGeneratedFiles(files), ...integrity.warnings];
+
     console.log('📁 Arquivos gerados:', files.map(f => f.name));
+    console.log('🎨 Tema:', chosenTheme.id);
     console.log('📦 Tamanho do App.tsx:', appFile.content.length, 'caracteres');
     console.log('✅ Projeto gerado com sucesso');
 
     if (brokenFiles.length > 0) {
-      console.error('⚠️ Arquivos com erro de sintaxe não corrigido:', brokenFiles.map(f => f.name));
+      console.error('⚠️ Arquivos com problema não resolvido:', brokenFiles.map(f => `${f.name} — ${f.error}`));
+    }
+    if (warnings.length > 0) {
+      console.warn('🔎 Avisos de qualidade:\n  - ' + warnings.join('\n  - '));
     }
 
     writeStreamEvent(res, {
       type: 'done',
       files,
       brokenFiles,
+      warnings,
+      theme: themePayload,
+      projectPlan,
       explanation:
         (explanationSection && explanationSection.content.trim()) ||
         'Projeto criado com sucesso pelo Nexa AI.'
@@ -1529,7 +1826,12 @@ HISTÓRICO
 
 ${previousMessages}
 
-${PREVIEW_RUNTIME_CONTRACT}
+${STANDARD_STACK_CONTRACT}
+${UI_KIT_CONTRACT}
+
+Os arquivos em components/ui/ e lib/utils.ts são a biblioteca do projeto —
+NÃO os inclua na resposta, NÃO os reescreva. Só edite os arquivos de
+seção / App.tsx.
 
 ======================================================================
 OBJETIVO
@@ -1558,7 +1860,7 @@ essa alteração aplicada.
 Se o usuário reportar um problema (ex.: "as imagens não aparecem",
 "o botão reinicia a página", "clicar não faz nada", "as cores estão
 feias"), esse é EXATAMENTE o tipo de bug coberto pelas seções IMAGENS,
-INTERATIVIDADE e CONTRASTE E CORES do contrato de runtime acima —
+INTERATIVIDADE e CONTRASTE E CORES do contrato da stack acima —
 revise TODO o arquivo procurando essas violações específicas (URLs de
 imagem inventadas, <button> sem type="button" dentro de <form>, <form>
 sem preventDefault, <a href="#">, contraste ruim) e corrija todas as
@@ -1579,7 +1881,7 @@ devolva SÓ esse arquivo — mas devolva.
 
 Se fizer sentido extrair uma seção nova para um arquivo próprio (ex.:
 criar components/Testimonials.tsx), pode criar — desde que App.tsx
-também seja atualizado para usar esse novo componente pelo nome.
+também seja atualizado para importar e usar esse novo componente.
 
 ======================================================================
 FORMATO
@@ -1593,11 +1895,13 @@ em sua própria linha:
 ===MESSAGE===
 Resumo curto da alteração realizada.
 ===FILE:App.tsx===
-function App() {
-  ...arquivo COMPLETO já atualizado, sem import, sem export...
+import Header from './components/Header';
+
+export default function App() {
+  ...arquivo COMPLETO já atualizado, com import/export normais...
 }
 ===FILE:components/Header.tsx===
-function Header() {
+export default function Header() {
   ...arquivo COMPLETO, só se este arquivo também mudou...
 }
 ===END===
@@ -1633,12 +1937,19 @@ Explicação curta.
 
     const sections = parseDelimitedResponse(fullText);
     const messageSection = sections.find(s => s.type === 'MESSAGE');
-    const fileSections = sections.filter(s => s.type === 'FILE');
-    const deleteSections = sections.filter(s => s.type === 'DELETE');
+    const normalizeFilePath = p => (p || 'App.tsx').replace(/^\.?\/*(src\/)?/, '');
+    const isProtected = p => UI_KIT_PATHS.has(p) || SCAFFOLD_BLOCKLIST.test(p);
+    // Ignora tentativas de reescrever a biblioteca do kit ou o scaffold.
+    const fileSections = sections
+      .filter(s => s.type === 'FILE')
+      .filter(s => !isProtected(normalizeFilePath(s.arg)));
+    const deleteSections = sections
+      .filter(s => s.type === 'DELETE')
+      .filter(s => !isProtected(normalizeFilePath(s.arg)));
 
     const fileActions = fileSections.map(s => ({
       type: 'update_file',
-      file: s.arg || 'App.tsx',
+      file: normalizeFilePath(s.arg),
       content: s.content.trim()
     }));
 
@@ -1664,7 +1975,7 @@ Explicação curta.
       ...resolvedFileActions,
       ...deleteSections
         .filter(s => s.arg)
-        .map(s => ({ type: 'delete_file', file: s.arg }))
+        .map(s => ({ type: 'delete_file', file: normalizeFilePath(s.arg) }))
     ];
 
     if (brokenFiles.length > 0) {

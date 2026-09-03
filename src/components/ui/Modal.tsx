@@ -32,10 +32,10 @@ export function Modal({ open, onClose, children, className = '' }: Props) {
       className={`fixed inset-0 z-[100] flex items-center justify-center p-4 transition-opacity duration-200 ${open ? 'opacity-100' : 'opacity-0'}`}
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+      <div className="absolute inset-0 bg-ink/40 backdrop-blur-sm" />
       <div
         ref={ref}
-        className={`relative glass-strong rounded-2xl shadow-2xl w-full max-w-md animate-slide-up ${className}`}
+        className={`relative glass-strong rounded-2xl shadow-paper-lg w-full max-w-md animate-slide-up ${className}`}
       >
         {children}
       </div>

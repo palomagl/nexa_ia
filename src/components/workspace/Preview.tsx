@@ -1,29 +1,34 @@
-import { useMemo, useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 
 import {
   Monitor,
   Tablet,
   Smartphone,
   RefreshCw,
-  ExternalLink,
   Download,
 } from 'lucide-react';
 
-import type { FileNode, PreviewDevice } from '../../types';
+import type { FileNode, PreviewDevice, ProjectTheme } from '../../types';
 import { cn } from '../../lib/utils';
 import { useStore } from '../../store/useStore';
-import { buildPreviewScript, buildPreviewHtml, contentKey } from '../../lib/previewRuntime';
 import { downloadProjectZip } from '../../lib/projectZip';
+
+// Sandpack traz ~1MB (CodeMirror, cliente do bundler). Só carrega quando um
+// Preview de fato monta — não pesa nas telas de navegação.
+const SandpackRuntime = lazy(() =>
+  import('./SandpackRuntime').then(m => ({ default: m.SandpackRuntime })),
+);
 
 interface Props {
   files: FileNode[];
   projectName: string;
+  theme?: ProjectTheme;
 }
 
-export function Preview({ files, projectName }: Props) {
+export function Preview({ files, projectName, theme }: Props) {
   const addToast = useStore(s => s.addToast);
   const [device, setDevice] = useState<PreviewDevice>('desktop');
-  const [refreshKey, setRefreshKey] = useState(0);
+  const [refreshToken, setRefreshToken] = useState(0);
   const [downloading, setDownloading] = useState(false);
 
   const sizes: Record<PreviewDevice, { width: string; height: string }> = {
@@ -38,16 +43,16 @@ export function Preview({ files, projectName }: Props) {
     { id: 'mobile', icon: Smartphone, label: 'Mobile' },
   ];
 
-  const previewCode = useMemo(() => buildPreviewScript(files), [files]);
-  const srcDoc = useMemo(() => buildPreviewHtml(previewCode, projectName), [previewCode, projectName]);
-  const iframeKey = `${refreshKey}:${contentKey(previewCode)}`;
-
   const handleDownload = async () => {
     if (downloading) return;
     setDownloading(true);
     try {
-      await downloadProjectZip(files, projectName);
-      addToast({ type: 'success', title: 'Projeto exportado', message: 'O .zip foi baixado — abra o index.html.' });
+      await downloadProjectZip(files, projectName, theme);
+      addToast({
+        type: 'success',
+        title: 'Projeto exportado',
+        message: 'O .zip é um projeto Vite — rode npm install && npm run dev.',
+      });
     } catch (error) {
       addToast({
         type: 'error',
@@ -61,7 +66,7 @@ export function Preview({ files, projectName }: Props) {
 
   return (
     <div className="h-full flex flex-col">
-      <div className="flex items-center justify-between px-3 py-2 border-b border-white/5">
+      <div className="flex items-center justify-between px-3 py-2 border-b border-paper-line">
         <div className="flex items-center gap-1">
           {devices.map((d) => {
             const Icon = d.icon;
@@ -73,8 +78,8 @@ export function Preview({ files, projectName }: Props) {
                 className={cn(
                   'p-2 rounded-lg transition-all',
                   device === d.id
-                    ? 'bg-nexa-500/15 text-nexa-300'
-                    : 'text-white/40 hover:text-white hover:bg-white/5'
+                    ? 'bg-lavender-soft text-lavender-ink'
+                    : 'text-ink/55 hover:text-ink hover:bg-ink/[0.05]'
                 )}
                 title={d.label}
               >
@@ -85,16 +90,15 @@ export function Preview({ files, projectName }: Props) {
         </div>
 
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/[0.02] border border-white/5 text-xs text-white/40">
-            <div className="w-1.5 h-1.5 rounded-full bg-green-400" />
-            localhost:5173/
-            {projectName.toLowerCase().replace(/\s+/g, '-')}
+          <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-paper-card border border-paper-line2 text-xs text-ink/55">
+            <div className="w-1.5 h-1.5 rounded-full bg-sage-deep" />
+            <span className="truncate max-w-[160px]">nexa.ai/{projectName.toLowerCase().replace(/\s+/g, '-')}</span>
           </div>
 
           <button
-            onClick={() => setRefreshKey((k) => k + 1)}
-            className="p-2 rounded-lg text-white/40 hover:text-white hover:bg-white/5 transition-all"
-            title="Refresh"
+            onClick={() => setRefreshToken((k) => k + 1)}
+            className="p-2 rounded-lg text-ink/55 hover:text-ink hover:bg-ink/[0.05] transition-all"
+            title="Recarregar"
           >
             <RefreshCw className="w-4 h-4" />
           </button>
@@ -102,34 +106,19 @@ export function Preview({ files, projectName }: Props) {
           <button
             onClick={handleDownload}
             disabled={downloading}
-            className="p-2 rounded-lg text-white/40 hover:text-white hover:bg-white/5 transition-all disabled:opacity-40"
+            className="p-2 rounded-lg text-ink/55 hover:text-ink hover:bg-ink/[0.05] transition-all disabled:opacity-40"
             title="Baixar projeto (.zip)"
           >
             <Download className={cn('w-4 h-4', downloading && 'animate-pulse')} />
           </button>
-
-          <button
-            onClick={() => {
-              const blob = new Blob([previewCode], { type: 'text/plain' });
-              const url = URL.createObjectURL(blob);
-              window.open(url, '_blank');
-              setTimeout(() => {
-                URL.revokeObjectURL(url);
-              }, 1000);
-            }}
-            className="p-2 rounded-lg text-white/40 hover:text-white hover:bg-white/5 transition-all"
-            title="Open source"
-          >
-            <ExternalLink className="w-4 h-4" />
-          </button>
         </div>
       </div>
 
-      <div className="flex-1 bg-bg-900 overflow-auto flex items-start justify-center p-4">
+      <div className="flex-1 bg-paper overflow-auto flex items-start justify-center p-4">
         <div
           className={cn(
-            'bg-white rounded-lg shadow-2xl overflow-hidden transition-all duration-300',
-            device !== 'desktop' && 'border border-white/10'
+            'bg-white rounded-lg shadow-paper-lg overflow-hidden transition-all duration-300',
+            device !== 'desktop' && 'border border-paper-line2'
           )}
           style={{
             width: sizes[device].width,
@@ -137,13 +126,15 @@ export function Preview({ files, projectName }: Props) {
             maxWidth: '100%',
           }}
         >
-          <iframe
-            key={iframeKey}
-            srcDoc={srcDoc}
-            title="Preview"
-            className="w-full h-full border-0"
-            sandbox="allow-scripts allow-same-origin"
-          />
+          <Suspense
+            fallback={
+              <div className="h-full w-full flex items-center justify-center bg-white text-sm text-slate-400">
+                carregando preview…
+              </div>
+            }
+          >
+            <SandpackRuntime files={files} theme={theme} refreshToken={refreshToken} />
+          </Suspense>
         </div>
       </div>
     </div>

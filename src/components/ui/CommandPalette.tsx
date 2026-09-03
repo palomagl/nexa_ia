@@ -15,20 +15,20 @@ export function CommandPalette() {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const commands = [
-    { icon: Home, label: 'Go to Home', action: () => navigate('/') },
-    { icon: Folder, label: 'Go to Projects', action: () => navigate('/projects') },
-    { icon: Star, label: 'Go to Starred', action: () => navigate('/starred') },
-    { icon: Clock, label: 'Go to All Projects', action: () => navigate('/all') },
-    { icon: Users, label: 'Go to Shared with you', action: () => navigate('/shared') },
-    { icon: Settings, label: 'Go to Settings', action: () => navigate('/settings') },
-    { icon: Plus, label: 'Create new project', action: () => navigate('/') },
-    { icon: Sparkles, label: 'Create with AI prompt', action: () => navigate('/') },
-    { icon: GitBranch, label: 'Connect GitHub', action: () => navigate('/settings') },
+    { icon: Home, label: 'Ir para o Início', action: () => navigate('/') },
+    { icon: Folder, label: 'Ir para Projetos', action: () => navigate('/projects') },
+    { icon: Star, label: 'Ir para Favoritos', action: () => navigate('/starred') },
+    { icon: Clock, label: 'Ir para Todos os projetos', action: () => navigate('/all') },
+    { icon: Users, label: 'Ir para Compartilhados', action: () => navigate('/shared') },
+    { icon: Settings, label: 'Ir para Configurações', action: () => navigate('/settings') },
+    { icon: Plus, label: 'Novo projeto', action: () => navigate('/') },
+    { icon: Sparkles, label: 'Criar com a IA', action: () => navigate('/') },
+    { icon: GitBranch, label: 'Conectar GitHub', action: () => navigate('/settings') },
   ];
 
   const projectCommands = projects.map(p => ({
     icon: FileText,
-    label: `Open: ${p.name}`,
+    label: `Abrir: ${p.name}`,
     action: () => navigate(`/project/${p.id}`),
   }));
 
@@ -69,22 +69,22 @@ export function CommandPalette() {
       className="fixed inset-0 z-[150] flex items-start justify-center pt-[15vh] px-4"
       onClick={e => { if (e.target === e.currentTarget) setCommandOpen(false); }}
     >
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-      <div className="relative w-full max-w-xl glass-strong rounded-2xl shadow-2xl overflow-hidden animate-slide-up">
-        <div className="flex items-center gap-3 px-4 border-b border-white/5">
-          <Search className="w-5 h-5 text-white/40" />
+      <div className="absolute inset-0 bg-ink/40 backdrop-blur-sm" />
+      <div className="relative w-full max-w-xl glass-strong rounded-2xl shadow-paper-lg overflow-hidden animate-slide-up">
+        <div className="flex items-center gap-3 px-4 border-b border-paper-line">
+          <Search className="w-5 h-5 text-ink/55" />
           <input
             ref={inputRef}
             value={query}
             onChange={e => setQuery(e.target.value)}
-            placeholder="Type a command or search projects..."
-            className="flex-1 bg-transparent py-4 text-white placeholder:text-white/30 focus:outline-none"
+            placeholder="Digite um comando ou busque projetos..."
+            className="flex-1 bg-transparent py-4 text-ink placeholder:text-ink/45 focus:outline-none"
           />
-          <kbd className="text-[10px] px-1.5 py-0.5 rounded bg-white/5 text-white/30">ESC</kbd>
+          <kbd className="text-[10px] px-1.5 py-0.5 rounded bg-ink/[0.05] text-ink/45">ESC</kbd>
         </div>
         <div className="max-h-80 overflow-y-auto p-2">
           {filtered.length === 0 && (
-            <div className="px-3 py-8 text-center text-white/40 text-sm">No results found</div>
+            <div className="px-3 py-8 text-center hand text-lg text-ink/45">nada encontrado</div>
           )}
           {filtered.map((cmd, i) => (
             <button
@@ -92,10 +92,10 @@ export function CommandPalette() {
               onClick={() => { cmd.action(); setCommandOpen(false); }}
               className={cn(
                 'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all',
-                i === selected ? 'bg-nexa-500/15 text-white' : 'text-white/60 hover:bg-white/5'
+                i === selected ? 'bg-lavender-soft text-ink' : 'text-ink/70 hover:bg-ink/[0.05]'
               )}
             >
-              <cmd.icon className={cn('w-4 h-4', i === selected && 'text-nexa-400')} />
+              <cmd.icon className={cn('w-4 h-4', i === selected && 'text-lavender-ink')} />
               <span>{cmd.label}</span>
             </button>
           ))}

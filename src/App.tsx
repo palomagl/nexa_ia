@@ -1,4 +1,3 @@
-import { useEffect } from 'react';
 import { Routes, Route, useLocation } from 'react-router-dom';
 import { Sidebar } from './components/layout/Sidebar';
 import { Topbar } from './components/layout/Topbar';
@@ -14,16 +13,12 @@ import { useStore } from './store/useStore';
 import { cn } from './lib/utils';
 
 function App() {
-  const { sidebarCollapsed, accentColor } = useStore();
+  const { sidebarCollapsed } = useStore();
   const location = useLocation();
   const isWorkspace = location.pathname.startsWith('/project/');
 
-  useEffect(() => {
-    document.documentElement.dataset.accent = accentColor;
-  }, [accentColor]);
-
   return (
-    <div className="min-h-screen bg-bg-900">
+    <div className="min-h-screen bg-paper">
       {!isWorkspace && <Sidebar />}
       <div
         className={cn(

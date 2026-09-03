@@ -1,28 +1,12 @@
 import { create } from 'zustand';
 import { nanoid } from 'nanoid';
-import type { Project, Toast, ChatMessage, FileNode, Version, ProjectType, AccentColor, User, Workspace } from '../types';
+import type { Project, Toast, ChatMessage, FileNode, Version, ProjectType, ProjectTheme, ProjectPlan, User, Workspace } from '../types';
 import { mockProjects, currentUser, currentWorkspace } from '../data/mockData';
 import { buildFileNodes, upsertFileByPath, removeFileByPath, type GeneratedFile } from '../lib/fileTree';
-
-const ACCENT_STORAGE_KEY = 'nexa-accent-color';
-
-function getStoredAccentColor(): AccentColor {
-  if (typeof window === 'undefined') return 'roxo';
-  try {
-    const stored = window.localStorage.getItem(ACCENT_STORAGE_KEY);
-    if (stored === 'roxo' || stored === 'violeta' || stored === 'ameixa' || stored === 'profundo') return stored;
-  } catch {
-    // localStorage indisponível (ex.: modo privado) — usa o padrão
-  }
-  return 'roxo';
-}
 
 interface AppState {
   sidebarCollapsed: boolean;
   toggleSidebar: () => void;
-
-  accentColor: AccentColor;
-  setAccentColor: (color: AccentColor) => void;
 
   user: User;
   updateUser: (patch: Partial<Pick<User, 'name' | 'email'>>) => void;
@@ -33,7 +17,7 @@ interface AppState {
   projects: Project[];
   // generatedFiles: lista de arquivos vindos da IA (App.tsx + possíveis
   // components/*.tsx). Cada um vira um FileNode real na árvore do projeto.
-  createProject: (prompt: string, type?: ProjectType, generatedFiles?: GeneratedFile[], explanation?: string) => string;
+  createProject: (prompt: string, type?: ProjectType, generatedFiles?: GeneratedFile[], explanation?: string, theme?: ProjectTheme, plan?: ProjectPlan) => string;
   updateProject: (id: string, patch: Partial<Project>) => void;
   deleteProject: (id: string) => void;
   toggleStar: (id: string) => void;
@@ -66,16 +50,6 @@ export const useStore = create<AppState>((set, get) => ({
   sidebarCollapsed: false,
   toggleSidebar: () => set(s => ({ sidebarCollapsed: !s.sidebarCollapsed })),
 
-  accentColor: getStoredAccentColor(),
-  setAccentColor: color => {
-    try {
-      window.localStorage.setItem(ACCENT_STORAGE_KEY, color);
-    } catch {
-      // localStorage indisponível — a cor ainda muda nesta sessão
-    }
-    set({ accentColor: color });
-  },
-
   user: currentUser,
   updateUser: patch => set(s => ({ user: { ...s.user, ...patch } })),
 
@@ -83,7 +57,7 @@ export const useStore = create<AppState>((set, get) => ({
   updateWorkspace: patch => set(s => ({ workspace: { ...s.workspace, ...patch } })),
 
   projects: mockProjects,
-  createProject: (prompt, type = 'app', generatedFiles, explanation) => {
+  createProject: (prompt, type = 'app', generatedFiles, explanation, theme, plan) => {
     const id = nanoid();
     const now = new Date().toISOString();
     const name = prompt.length > 40 ? prompt.slice(0, 40).trimEnd() + '…' : prompt;
@@ -94,7 +68,7 @@ export const useStore = create<AppState>((set, get) => ({
       ? buildFileNodes(generatedFiles)
       : buildFileNodes([{
           name: 'App.tsx',
-          content: `function App() {\n  return (\n    <div className="p-8 bg-slate-950 text-white min-h-screen">\n      <h1 className="text-2xl font-bold">${prompt}</h1>\n    </div>\n  );\n}`,
+          content: `export default function App() {\n  return (\n    <div className="p-8 bg-slate-950 text-white min-h-screen">\n      <h1 className="text-2xl font-bold">${prompt}</h1>\n    </div>\n  );\n}\n`,
         }]);
 
     const newProject: Project = {
@@ -107,8 +81,10 @@ export const useStore = create<AppState>((set, get) => ({
       createdAt: now,
       starred: false,
       shared: false,
-      previewGradient: 'from-nexa-600 to-violet-500',
+      previewGradient: 'from-lavender to-lavender-deep',
       prompt,
+      theme,
+      plan,
       files,
       chat: [
         { id: nanoid(), role: 'user', content: prompt, timestamp: now, status: 'sent' },
