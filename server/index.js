@@ -541,6 +541,29 @@ CONTRASTE E CORES:
 QUALIDADE NÃO PODE CAIR POR CAUSA DESSAS REGRAS. Ainda assim você DEVE
 criar uma aplicação visualmente rica, completa e profissional, com
 múltiplas seções e interatividade real.
+
+======================================================================
+ARQUIVO COMPLETO + IMPORTS
+======================================================================
+
+- IMPORT POR ARQUIVO: todo componente, hook, ícone ou módulo externo
+  usado num arquivo PRECISA estar importado no TOPO DESSE arquivo — não
+  vale "herdar" imports de outro arquivo. Usou <Button>? precisa de
+  "import { Button } from './ui/button'" nesse arquivo. Usou
+  <ChevronRight/>? "import { ChevronRight } from 'lucide-react'".
+  Usou useState? "import { useState } from 'react'". APIs nativas do
+  browser como window, document, fetch e JSON NÃO precisam de import.
+  Antes de fechar cada arquivo, revise se todos os componentes, hooks,
+  ícones e módulos externos usados nele possuem seus próprios imports.
+
+- CADA ARQUIVO 100% FECHADO: toda tag, chave, parêntese e aspa devem
+  estar fechados. Nenhuma função, objeto, array ou JSX pode ficar pela
+  metade. Arquivo incompleto quebra o Preview.
+
+- SE O ESPAÇO ESTIVER ACABANDO: entregue UMA seção a menos, completa,
+  do que tentar incluir mais uma seção pela metade. É melhor ter menos
+  seções completas do que arquivos truncados. Sempre termine o último
+  arquivo corretamente e chegue ao ===END===.
 `;
 
 /*
