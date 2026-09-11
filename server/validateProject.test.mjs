@@ -333,6 +333,39 @@ export default function Pricing() { return <section>{CURRENCY}<PriceCard /></sec
   assert.deepEqual(r.undefinedRefs, []);
 });
 
+test('v1.1: import de um export type não gera falso no-export', () => {
+  const categories = {
+    name: 'data/categories.ts',
+    content: `export type Category = { name: string; slug: string };
+export const categories: Category[] = [{ name: 'A', slug: 'a' }];
+`,
+  };
+  const posts = {
+    name: 'data/posts.ts',
+    content: `import { Category, categories } from './categories';
+export type Post = { id: string; category: Category };
+export const posts: Post[] = [{ id: '1', category: categories[0] }];
+`,
+  };
+  const list = {
+    name: 'components/PostList.tsx',
+    content: `import { posts, Post } from '../data/posts';
+export default function PostList() { return <ul>{posts.map((p: Post) => <li key={p.id}>{p.id}</li>)}</ul>; }
+`,
+  };
+  const app = {
+    name: 'App.tsx',
+    content: `import PostList from './components/PostList';
+export default function App() { return <div><PostList /></div>; }
+`,
+  };
+  const r = analyzeProject([app, list, posts, categories, ...UI_KIT_FILES]);
+  assert.deepEqual(r.unresolvedImports, [], JSON.stringify(r.unresolvedImports));
+  const { broken, stubbed } = enforceModuleIntegrity([app, list, posts, categories, ...UI_KIT_FILES]);
+  assert.equal(broken.length, 0, 'nada deveria quebrar: ' + JSON.stringify(broken));
+  assert.equal(stubbed.length, 0, 'nada deveria virar stub: ' + JSON.stringify(stubbed));
+});
+
 test('v1.1: re-export (export * from) não gera falso no-export', () => {
   const barrel = { name: 'components/index.ts', content: `export * from './PriceCard';\n` };
   const priceCard = { name: 'components/PriceCard.tsx', content: `export const PriceCard = () => <div/>;\n` };

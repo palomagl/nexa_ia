@@ -178,7 +178,7 @@ function collectExportNames(code) {
 //       (o preset elide import que só era usado em posição de tipo).
 // -----------------------------------------------------------------------------
 function emptyExports() {
-  return { default: false, named: new Set(), reexports: false };
+  return { default: false, named: new Set(), types: new Set(), reexports: false };
 }
 
 function fileFacts(name, content) {
@@ -193,7 +193,21 @@ function fileFacts(name, content) {
         ExportDefaultDeclaration() { exps.default = true; },
         ExportAllDeclaration() { exps.reexports = true; },
         ExportNamedDeclaration(p) {
-          if (p.node.exportKind === 'type') return;
+          // `export type { X }` / `export type X = ...` — nome válido de
+          // import (o bundler elide no build), então registramos como TIPO
+          // em vez de ignorar; senão `import { X }` de outro arquivo era
+          // acusado como no-export (falso positivo que estubava seções).
+          if (p.node.exportKind === 'type') {
+            const td = p.node.declaration;
+            if (td?.id?.name) exps.types.add(td.id.name);
+            for (const decl of td?.declarations || []) {
+              if (decl.id?.name) exps.types.add(decl.id.name);
+            }
+            for (const s of p.node.specifiers || []) {
+              if (s.exported?.name) exps.types.add(s.exported.name);
+            }
+            return;
+          }
           if (p.node.source) {
             for (const s of p.node.specifiers || []) {
               if (s.type === 'ExportNamespaceSpecifier') { exps.reexports = true; continue; }
@@ -203,14 +217,20 @@ function fileFacts(name, content) {
           }
           const d = p.node.declaration;
           if (d) {
-            if (d.type === 'TSInterfaceDeclaration' || d.type === 'TSTypeAliasDeclaration') return;
+            if (d.type === 'TSInterfaceDeclaration' || d.type === 'TSTypeAliasDeclaration') {
+              if (d.id?.name) exps.types.add(d.id.name);
+              return;
+            }
             if (d.id?.name) exps.named.add(d.id.name);
             for (const decl of d.declarations || []) {
               if (decl.id?.name) exps.named.add(decl.id.name);
             }
           }
           for (const s of p.node.specifiers || []) {
-            if (s.exportKind === 'type') continue;
+            if (s.exportKind === 'type') {
+              if (s.exported?.name) exps.types.add(s.exported.name);
+              continue;
+            }
             if (s.exported?.name) exps.named.add(s.exported.name);
           }
         },
@@ -353,7 +373,9 @@ function checkNamedImports(imp, targetExports, file, spec, sink) {
     if (s.kind === 'default') {
       if (!targetExports.default) sink.push({ file, spec, reason: 'no-default-export', name: s.local });
     } else if (s.kind === 'named') {
-      if (!targetExports.named.has(s.imported)) {
+      const known = targetExports.named.has(s.imported) ||
+        (targetExports.types && targetExports.types.has(s.imported));
+      if (!known) {
         sink.push({ file, spec, reason: 'no-export', name: s.imported });
       }
     }
