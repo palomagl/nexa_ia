@@ -4,13 +4,28 @@ import {
   ChevronLeft, ChevronRight, Settings,
 } from 'lucide-react';
 import { useStore } from '../../store/useStore';
-import { cn } from '../../lib/utils';
+import { cn, useIsMobile } from '../../lib/utils';
 import { Star } from '../ui/Doodles';
 
-export function Sidebar() {
+interface SidebarProps {
+  /** Gaveta aberta no mobile/tablet (a versão desktop ignora essa prop). */
+  mobileOpen?: boolean;
+  onCloseMobile?: () => void;
+}
+
+export function Sidebar({ mobileOpen = false, onCloseMobile }: SidebarProps) {
   const { sidebarCollapsed, toggleSidebar, user, workspace } = useStore();
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
+  // No mobile a sidebar é sempre uma gaveta expandida — o modo "recolhido"
+  // (ícones só) é um recurso só de desktop.
+  const collapsed = sidebarCollapsed && !isMobile;
   const initials = user.name.split(' ').map(n => n[0]).join('').slice(0, 2);
+
+  const goTo = (path: string) => {
+    onCloseMobile?.();
+    navigate(path);
+  };
 
   const mainNav = [
     { icon: Home, label: 'Início', path: '/' },
@@ -24,13 +39,17 @@ export function Sidebar() {
   return (
     <aside
       className={cn(
-        'fixed left-0 top-0 z-40 h-screen bg-paper-card border-r border-paper-line2 shadow-paper-sm flex flex-col transition-all duration-300',
-        sidebarCollapsed ? 'w-16' : 'w-64'
+        'fixed left-0 top-0 z-50 h-screen bg-paper-card border-r border-paper-line2 shadow-paper-sm flex flex-col transition-all duration-300',
+        // Mobile/tablet: gaveta full-width que desliza pra fora da tela;
+        // desktop (lg+): sempre visível, largura conforme "collapsed".
+        'w-64 lg:translate-x-0',
+        mobileOpen ? 'translate-x-0' : '-translate-x-full',
+        collapsed ? 'lg:w-16' : 'lg:w-64'
       )}
     >
       {/* Logo */}
-      <div className={cn('flex items-center h-16 border-b border-paper-line', sidebarCollapsed ? 'justify-center px-2' : 'px-5')}>
-        {sidebarCollapsed ? (
+      <div className={cn('flex items-center h-16 border-b border-paper-line', collapsed ? 'justify-center px-2' : 'px-5')}>
+        {collapsed ? (
           <Star size={22} fill className="text-lavender-deep" />
         ) : (
           <div className="flex items-baseline gap-1.5">
@@ -42,10 +61,10 @@ export function Sidebar() {
       </div>
 
       {/* Workspace selector */}
-      {!sidebarCollapsed && (
+      {!collapsed && (
         <div className="px-3 pt-5">
           <button
-            onClick={() => navigate('/settings')}
+            onClick={() => goTo('/settings')}
             title="Configurações do workspace"
             className="washi w-full flex items-center gap-3 p-2.5 rounded-xl bg-lavender-soft/40 border border-paper-line2 hover:border-lavender-deep/40 transition-all"
           >
@@ -63,20 +82,21 @@ export function Sidebar() {
 
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-0.5 scrollbar-hide">
-        {!sidebarCollapsed && <p className="hand text-base text-ink/45 px-3 pt-1 pb-2">menu</p>}
+        {!collapsed && <p className="hand text-base text-ink/45 px-3 pt-1 pb-2">menu</p>}
         {mainNav.map(item => (
           <NavLink
             key={item.path}
             to={item.path}
             end={item.path === '/'}
-            className={({ isActive }) => cn('nav-item', isActive && 'nav-item-active', sidebarCollapsed && 'justify-center px-2')}
-            title={sidebarCollapsed ? item.label : undefined}
+            onClick={onCloseMobile}
+            className={({ isActive }) => cn('nav-item', isActive && 'nav-item-active', collapsed && 'justify-center px-2')}
+            title={collapsed ? item.label : undefined}
           >
             {({ isActive }) => (
               <>
                 <item.icon className="w-[18px] h-[18px] flex-shrink-0" />
-                {!sidebarCollapsed && <span className="flex-1">{item.label}</span>}
-                {!sidebarCollapsed && isActive && <Star size={13} fill className="text-lavender-deep flex-shrink-0" />}
+                {!collapsed && <span className="flex-1">{item.label}</span>}
+                {!collapsed && isActive && <Star size={13} fill className="text-lavender-deep flex-shrink-0" />}
               </>
             )}
           </NavLink>
@@ -84,19 +104,19 @@ export function Sidebar() {
       </nav>
 
       {/* User footer */}
-      <div className={cn('border-t border-paper-line p-3', sidebarCollapsed && 'px-2')}>
-        <div className={cn('flex items-center gap-3', sidebarCollapsed && 'justify-center')}>
+      <div className={cn('border-t border-paper-line p-3', collapsed && 'px-2')}>
+        <div className={cn('flex items-center gap-3', collapsed && 'justify-center')}>
           <div className="w-8 h-8 rounded-lg bg-sage flex items-center justify-center text-xs font-display font-semibold text-sage-ink flex-shrink-0">
             {initials}
           </div>
-          {!sidebarCollapsed && (
+          {!collapsed && (
             <>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-ink truncate">{user.name}</p>
                 <p className="text-xs text-ink/55 truncate">{user.email}</p>
               </div>
               <button
-                onClick={() => navigate('/settings')}
+                onClick={() => goTo('/settings')}
                 title="Configurações"
                 className="p-1.5 rounded-lg text-ink/50 hover:text-ink hover:bg-ink/[0.05] transition-all"
               >
@@ -107,13 +127,13 @@ export function Sidebar() {
         </div>
       </div>
 
-      {/* Collapse toggle */}
+      {/* Collapse toggle — recurso só de desktop */}
       <button
         onClick={toggleSidebar}
-        title={sidebarCollapsed ? 'Expandir' : 'Recolher'}
-        className="absolute -right-3 top-20 w-6 h-6 rounded-full bg-paper-card border border-paper-line2 shadow-paper-sm flex items-center justify-center text-ink/60 hover:text-ink hover:border-lavender-deep/50 transition-all z-50"
+        title={collapsed ? 'Expandir' : 'Recolher'}
+        className="hidden lg:flex absolute -right-3 top-20 w-6 h-6 rounded-full bg-paper-card border border-paper-line2 shadow-paper-sm items-center justify-center text-ink/60 hover:text-ink hover:border-lavender-deep/50 transition-all z-50"
       >
-        <ChevronLeft className={cn('w-3.5 h-3.5 transition-transform', sidebarCollapsed && 'rotate-180')} />
+        <ChevronLeft className={cn('w-3.5 h-3.5 transition-transform', collapsed && 'rotate-180')} />
       </button>
     </aside>
   );

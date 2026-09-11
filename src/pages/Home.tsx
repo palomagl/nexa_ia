@@ -5,7 +5,7 @@ import {
   Star as StarIcon, Trash2, Clock, Share2, X, ImageIcon, Plus,
 } from 'lucide-react';
 import { useStore } from '../store/useStore';
-import { cn, formatDate, formatServerError, isNetworkError, consumeNDJSONStream, readImageFile, type AttachedImage } from '../lib/utils';
+import { API_URL, cn, formatDate, formatServerError, isNetworkError, consumeNDJSONStream, readImageFile, type AttachedImage } from '../lib/utils';
 import { useVoiceInput } from '../lib/useVoiceInput';
 import { Dropdown } from '../components/ui/Dropdown';
 import { Modal } from '../components/ui/Modal';
@@ -52,7 +52,7 @@ export function Home() {
     setPlanning(true);
 
     try {
-      const response = await fetch('http://localhost:3000/api/plan', {
+      const response = await fetch(`${API_URL}/api/plan`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt: prompt.trim(), attachment: attachedImage || undefined }),
@@ -71,7 +71,7 @@ export function Home() {
         type: 'error',
         title: 'Falha ao planejar',
         message: isNetworkError(error)
-          ? 'Não foi possível conectar. Verifique se o servidor Express está rodando em http://localhost:3000.'
+          ? `Não foi possível conectar ao servidor (${API_URL}). Verifique se ele está no ar.`
           : error instanceof Error
             ? error.message
             : 'Erro ao gerar o plano.',
@@ -96,7 +96,7 @@ export function Home() {
     });
 
     try {
-      const response = await fetch('http://localhost:3000/api/generate', {
+      const response = await fetch(`${API_URL}/api/generate`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -184,7 +184,7 @@ export function Home() {
       setPhaseLabel('');
 
       const message = isNetworkError(error)
-        ? 'Não foi possível conectar. Verifique se o servidor Express está rodando em http://localhost:3000.'
+        ? `Não foi possível conectar ao servidor (${API_URL}). Verifique se ele está no ar.`
         : error instanceof Error
           ? error.message
           : 'Erro ao gerar o projeto.';

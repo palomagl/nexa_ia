@@ -4,7 +4,7 @@ import {
 } from 'lucide-react';
 import type { ChatMessage } from '../../types';
 import { useStore } from '../../store/useStore';
-import { cn, formatDate, formatServerError, isNetworkError, consumeNDJSONStream, readImageFile, type AttachedImage } from '../../lib/utils';
+import { API_URL, cn, formatDate, formatServerError, isNetworkError, consumeNDJSONStream, readImageFile, type AttachedImage } from '../../lib/utils';
 import { useVoiceInput } from '../../lib/useVoiceInput';
 import { findNodeByPath } from '../../lib/fileTree';
 import { Star } from '../ui/Doodles';
@@ -85,7 +85,7 @@ export function AIChat({ projectId, messages, onCollapse }: Props) {
   setStreamedChars(0);
 
   try {
-    const response = await fetch('http://localhost:3000/api/chat', {
+    const response = await fetch(`${API_URL}/api/chat`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -241,7 +241,7 @@ export function AIChat({ projectId, messages, onCollapse }: Props) {
     console.error('Erro no AIChat:', error);
 
     const message = isNetworkError(error)
-      ? 'Não foi possível conectar. Verifique se o servidor Express está rodando em http://localhost:3000.'
+      ? `Não foi possível conectar ao servidor (${API_URL}). Verifique se ele está no ar.`
       : error instanceof Error
         ? error.message
         : 'Não foi possível processar sua solicitação.';

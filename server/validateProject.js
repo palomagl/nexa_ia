@@ -133,11 +133,14 @@ const LUCIDE_ICONS = new Set([
 // montado uma vez a partir dos próprios arquivos do kit.
 // -----------------------------------------------------------------------------
 const KIT_EXPORT_TO_MODULE = new Map();
+const KIT_MODULE_EXPORTS = new Map(); // 'button' -> Set(['Button','buttonVariants'])
 for (const f of UI_KIT_FILES) {
   const m = f.name.match(/^components\/ui\/([a-z0-9-]+)\.tsx$/);
   if (!m) continue;
   const mod = m[1];
-  for (const exp of collectExportNames(f.content)) KIT_EXPORT_TO_MODULE.set(exp, mod);
+  const exps = collectExportNames(f.content);
+  KIT_MODULE_EXPORTS.set(mod, new Set(exps));
+  for (const exp of exps) KIT_EXPORT_TO_MODULE.set(exp, mod);
 }
 
 /** Nomes exportados de um trecho — via Babel, tolerante a erro. */
@@ -167,13 +170,19 @@ function collectExportNames(code) {
 }
 
 // -----------------------------------------------------------------------------
-// Fatos de um arquivo: imports originais + identificadores livres (globais).
-// Estratégia em 2 transforms: (1) full (react+ts) tira os tipos e vira JS puro;
-// (2) analisa o JS -> scope.globals só tem referências de VALOR reais (sem
-// falso positivo de tipo TS).
+// Fatos de um arquivo: exports + imports (com tipo) + identificadores livres.
+// Estratégia em 2 transforms:
+//   (1) full (react+ts): coleta os EXPORTS originais e tira os tipos -> JS puro;
+//   (2) analisa o JS: scope.globals só tem referências de VALOR reais (sem
+//       falso positivo de tipo TS) e os imports já vêm sem os type-only
+//       (o preset elide import que só era usado em posição de tipo).
 // -----------------------------------------------------------------------------
+function emptyExports() {
+  return { default: false, named: new Set(), types: new Set(), reexports: false };
+}
+
 function fileFacts(name, content) {
-  const imports = [];
+  const exps = emptyExports();
   let jsCode;
   const tsxName = /\.ts$/i.test(name) ? name : name.replace(/\.[jt]sx?$/i, '.tsx');
   try {
@@ -181,33 +190,90 @@ function fileFacts(name, content) {
       presets: [['react', { runtime: 'automatic' }], 'typescript'],
       filename: tsxName,
       plugins: [() => ({ visitor: {
-        ImportDeclaration(p) {
-          if (p.node.importKind === 'type') return;
-          const locals = (p.node.specifiers || [])
-            .filter(s => s.importKind !== 'type')
-            .map(s => s.local.name);
-          imports.push({ source: p.node.source.value, locals });
+        ExportDefaultDeclaration() { exps.default = true; },
+        ExportAllDeclaration() { exps.reexports = true; },
+        ExportNamedDeclaration(p) {
+          // `export type { X }` / `export type X = ...` — nome válido de
+          // import (o bundler elide no build), então registramos como TIPO
+          // em vez de ignorar; senão `import { X }` de outro arquivo era
+          // acusado como no-export (falso positivo que estubava seções).
+          if (p.node.exportKind === 'type') {
+            const td = p.node.declaration;
+            if (td?.id?.name) exps.types.add(td.id.name);
+            for (const decl of td?.declarations || []) {
+              if (decl.id?.name) exps.types.add(decl.id.name);
+            }
+            for (const s of p.node.specifiers || []) {
+              if (s.exported?.name) exps.types.add(s.exported.name);
+            }
+            return;
+          }
+          if (p.node.source) {
+            for (const s of p.node.specifiers || []) {
+              if (s.type === 'ExportNamespaceSpecifier') { exps.reexports = true; continue; }
+              if (s.exported?.name) exps.named.add(s.exported.name);
+            }
+            return;
+          }
+          const d = p.node.declaration;
+          if (d) {
+            if (d.type === 'TSInterfaceDeclaration' || d.type === 'TSTypeAliasDeclaration') {
+              if (d.id?.name) exps.types.add(d.id.name);
+              return;
+            }
+            if (d.id?.name) exps.named.add(d.id.name);
+            for (const decl of d.declarations || []) {
+              if (decl.id?.name) exps.named.add(decl.id.name);
+            }
+          }
+          for (const s of p.node.specifiers || []) {
+            if (s.exportKind === 'type') {
+              if (s.exported?.name) exps.types.add(s.exported.name);
+              continue;
+            }
+            if (s.exported?.name) exps.named.add(s.exported.name);
+          }
         },
       } })],
     }).code;
   } catch (e) {
-    return { parseError: (e.message || String(e)).split('\n')[0], imports: [], globals: [] };
+    return { parseError: (e.message || String(e)).split('\n')[0], imports: [], globals: [], exports: exps };
   }
 
+  const imports = [];
   let globals = [];
   try {
     Babel.transform(jsCode, {
       filename: 'x.js',
-      plugins: [() => ({ visitor: { Program: { exit(p) { globals = Object.keys(p.scope.globals); } } } })],
+      plugins: [() => ({ visitor: {
+        ImportDeclaration(p) {
+          const src = p.node.source.value;
+          if (src === 'react/jsx-runtime' || src === 'react/jsx-dev-runtime') return;
+          const specifiers = (p.node.specifiers || []).map(s => {
+            if (s.type === 'ImportDefaultSpecifier') return { kind: 'default', local: s.local.name };
+            if (s.type === 'ImportNamespaceSpecifier') return { kind: 'namespace', local: s.local.name };
+            return {
+              kind: 'named',
+              imported: s.imported?.name ?? s.imported?.value ?? s.local.name,
+              local: s.local.name,
+            };
+          });
+          imports.push({ source: src, specifiers });
+        },
+        Program: { exit(p) { globals = Object.keys(p.scope.globals); } },
+      } })],
     });
   } catch { globals = []; }
 
-  return { parseError: null, imports, globals };
+  return { parseError: null, imports, globals, exports: exps };
 }
 
-/** Resolve um import relativo contra o conjunto de nomes de arquivo (layout
- *  do pipeline: App.tsx, components/X.tsx, components/ui/x.tsx, lib/utils.ts). */
-function resolveRelative(fromFile, spec, nameSet) {
+const ASSET_RE = /\.(css|scss|sass|less|styl|svg|png|jpe?g|gif|webp|avif|ico|woff2?|ttf|eot|mp4|webm|mp3|wav)$/i;
+
+/** Resolve um import relativo contra o conjunto de nomes de arquivo (layout do
+ *  pipeline: App.tsx, components/X.tsx, components/ui/x.tsx, lib/utils.ts).
+ *  Devolve o NOME do arquivo casado, ou null. */
+function resolveRelativeName(fromFile, spec, nameSet) {
   const dir = ('/' + fromFile.replace(/^\/+/, '')).split('/').slice(0, -1);
   for (const seg of spec.split('/')) {
     if (seg === '' || seg === '.') continue;
@@ -219,16 +285,29 @@ function resolveRelative(fromFile, spec, nameSet) {
     base, `${base}.tsx`, `${base}.ts`, `${base}.jsx`, `${base}.js`,
     `${base}/index.tsx`, `${base}/index.ts`, `${base}/index.jsx`, `${base}/index.js`,
   ];
-  return cands.some(c => nameSet.has(c));
+  return cands.find(c => nameSet.has(c)) || null;
 }
 
+// Fatos dos arquivos do kit — imutáveis, calculados uma vez.
+const KIT_FACTS = new Map();
+for (const f of UI_KIT_FILES) KIT_FACTS.set(f.name, fileFacts(f.name, f.content));
+
 /**
- * Análise estática do projeto inteiro. Não executa nada. Ignora os arquivos do
- * kit (são nossos). Retorna listas de achados — não corrige.
+ * Análise estática do projeto inteiro. Não executa nada. Não analisa os
+ * arquivos do kit (são nossos), mas usa os exports deles pra checar imports.
+ * Retorna listas de achados — não corrige.
  */
 export function analyzeProject(files) {
   const list = (files || []).filter(f => f && typeof f.name === 'string');
   const nameSet = new Set(list.map(f => f.name));
+
+  // Fatos de todo arquivo de código (kit vem do cache).
+  const factsByName = new Map();
+  for (const f of list) {
+    if (!CODE_EXT.test(f.name)) continue;
+    factsByName.set(f.name, KIT_FACTS.get(f.name) || fileFacts(f.name, f.content || ''));
+  }
+
   const undefinedRefs = [];
   const unresolvedImports = [];
   const unavailableDeps = [];
@@ -236,7 +315,7 @@ export function analyzeProject(files) {
 
   for (const f of list) {
     if (!CODE_EXT.test(f.name) || UI_KIT_PATHS.has(f.name)) continue;
-    const facts = fileFacts(f.name, f.content || '');
+    const facts = factsByName.get(f.name);
 
     if (facts.parseError) {
       parseErrors.push({ file: f.name, error: facts.parseError });
@@ -250,23 +329,57 @@ export function analyzeProject(files) {
 
     for (const imp of facts.imports) {
       const spec = imp.source;
-      if (spec.startsWith('.')) {
-        const ui = spec.match(/(?:^|\/)ui\/([a-z0-9-]+)$/i);
-        if (ui && !UI_KIT_MODULES.has(ui[1])) {
+
+      if (!spec.startsWith('.')) {
+        const pkg = spec.startsWith('@') ? spec.split('/').slice(0, 2).join('/') : spec.split('/')[0];
+        if (!ALLOWED_BARE.has(pkg)) unavailableDeps.push({ file: f.name, pkg });
+        continue;
+      }
+
+      // import relativo pra ./ui/<x>
+      const ui = spec.match(/(?:^|\/)ui\/([a-z0-9-]+)$/i);
+      if (ui) {
+        if (!UI_KIT_MODULES.has(ui[1])) {
           unresolvedImports.push({ file: f.name, spec, reason: 'kit-module' });
           continue;
         }
-        if (!resolveRelative(f.name, spec, nameSet)) {
-          unresolvedImports.push({ file: f.name, spec, reason: 'missing-file' });
-        }
-      } else {
-        const pkg = spec.startsWith('@') ? spec.split('/').slice(0, 2).join('/') : spec.split('/')[0];
-        if (!ALLOWED_BARE.has(pkg)) unavailableDeps.push({ file: f.name, pkg });
+        checkNamedImports(imp, { default: false, named: KIT_MODULE_EXPORTS.get(ui[1]) || new Set() },
+          f.name, spec, unresolvedImports);
+        continue;
+      }
+
+      // import relativo pra outro arquivo do projeto
+      const target = resolveRelativeName(f.name, spec, nameSet);
+      if (!target) {
+        unresolvedImports.push({
+          file: f.name, spec,
+          reason: ASSET_RE.test(spec) ? 'missing-asset' : 'missing-file',
+        });
+        continue;
+      }
+      const tf = factsByName.get(target);
+      if (tf && !tf.parseError && !tf.exports.reexports) {
+        checkNamedImports(imp, tf.exports, f.name, spec, unresolvedImports);
       }
     }
   }
 
   return { undefinedRefs, unresolvedImports, unavailableDeps, parseErrors };
+}
+
+/** Confere default/named import contra os exports conhecidos do alvo. */
+function checkNamedImports(imp, targetExports, file, spec, sink) {
+  for (const s of imp.specifiers) {
+    if (s.kind === 'default') {
+      if (!targetExports.default) sink.push({ file, spec, reason: 'no-default-export', name: s.local });
+    } else if (s.kind === 'named') {
+      const known = targetExports.named.has(s.imported) ||
+        (targetExports.types && targetExports.types.has(s.imported));
+      if (!known) {
+        sink.push({ file, spec, reason: 'no-export', name: s.imported });
+      }
+    }
+  }
 }
 
 // -----------------------------------------------------------------------------
@@ -354,12 +467,20 @@ const SECTION_RE = /^components\/([A-Z][A-Za-z0-9_]*)\.tsx$/;
  *  - broken:  [{name,error}] que continuam quebrados e NÃO puderam virar stub
  *             (App.tsx, theme.ts, lib/*) — reportados, ainda embarcam
  *  - stubbed: [{name,error}] seções trocadas por stub pra o Preview montar
+ *  - recovered:[{name,error}] App.tsx irrecuperável trocado pelo App do
+ *             scaffold (opts.appFallback) pra o Preview NUNCA dar tela branca
  *  - warnings:[string] problemas "soft" (dep npm fora da lista, import que não
  *             resolve) — não bloqueiam
+ *
+ * opts.appFallback: { name:'App.tsx', content } — o App determinístico do
+ * scaffold da Etapa 1 (scaffoldSpine(projectPlan, theme)[0]). Só é usado se o
+ * App.tsx real ficar "hard" E o fallback compilar E todos os imports dele
+ * resolverem contra o conjunto final de arquivos.
  */
-export function enforceModuleIntegrity(files, priorBrokenNames = []) {
+export function enforceModuleIntegrity(files, priorBrokenNames = [], opts = {}) {
   const out = (files || []).map(f => ({ ...f }));
   const prior = new Set(priorBrokenNames);
+  const isApp = name => name === 'App.tsx' || name.endsWith('/App.tsx');
 
   // 1) análise + auto-import
   const r0 = analyzeProject(out);
@@ -392,8 +513,22 @@ export function enforceModuleIntegrity(files, priorBrokenNames = []) {
   for (const u of r1.undefinedRefs) addHard(u.file, `'${u.name}' usado sem import/definição`);
   for (const p of r1.parseErrors) addHard(p.file, `não compila: ${p.error}`);
   for (const u of r1.unresolvedImports) {
-    if (u.reason === 'kit-module') addHard(u.file, `importa '${u.spec}' — módulo de kit inexistente`);
-    else soft.push(`${u.file}: import '${u.spec}' não resolve (arquivo ausente)`);
+    switch (u.reason) {
+      case 'kit-module':
+        addHard(u.file, `importa '${u.spec}' — módulo de kit inexistente`);
+        break;
+      case 'missing-file':
+        addHard(u.file, `importa '${u.spec}' — arquivo não existe no projeto`);
+        break;
+      case 'no-export':
+        addHard(u.file, `importa { ${u.name} } de '${u.spec}' — export inexistente`);
+        break;
+      case 'no-default-export':
+        addHard(u.file, `import default de '${u.spec}' — o arquivo não tem export default`);
+        break;
+      default: // missing-asset
+        soft.push(`${u.file}: import '${u.spec}' não resolve (asset ausente)`);
+    }
   }
   for (const name of prior) {
     if (out.some(f => f.name === name)) addHard(name, 'erro de sintaxe não corrigido');
@@ -404,17 +539,42 @@ export function enforceModuleIntegrity(files, priorBrokenNames = []) {
 
   const broken = [];
   const stubbed = [];
+  const recovered = [];
   for (const [file, reasons] of hard) {
     const error = reasons.join('; ');
     const sec = file.match(SECTION_RE);
+
     if (sec && !UI_KIT_PATHS.has(file)) {
       const i = out.findIndex(f => f.name === file);
       if (i >= 0) out[i] = { ...out[i], content: sectionStub(sec[1]) };
       stubbed.push({ name: file, error });
-    } else {
-      broken.push({ name: file, error });
+      continue;
     }
+
+    // App.tsx irrecuperável: última tentativa é o App determinístico do
+    // scaffold — só entra se compilar E todos os imports dele resolverem.
+    if (isApp(file) && opts.appFallback && appFallbackFits(opts.appFallback, file, out)) {
+      const i = out.findIndex(f => f.name === file);
+      if (i >= 0) out[i] = { ...out[i], content: opts.appFallback.content };
+      recovered.push({ name: file, error });
+      continue;
+    }
+
+    broken.push({ name: file, error });
   }
 
-  return { files: out, fixed, broken, stubbed, warnings: soft };
+  return { files: out, fixed, broken, stubbed, recovered, warnings: soft };
+}
+
+/** O App do scaffold é seguro pra substituir o App.tsx quebrado? */
+function appFallbackFits(fallback, appName, files) {
+  if (!fallback || !fallback.content) return false;
+  const facts = fileFacts(appName, fallback.content);
+  if (facts.parseError) return false;
+  const nameSet = new Set(files.map(f => f.name));
+  for (const imp of facts.imports) {
+    if (!imp.source.startsWith('.')) continue;
+    if (!resolveRelativeName(appName, imp.source, nameSet)) return false;
+  }
+  return true;
 }

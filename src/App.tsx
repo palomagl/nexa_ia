@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { Routes, Route, useLocation } from 'react-router-dom';
 import { Sidebar } from './components/layout/Sidebar';
 import { Topbar } from './components/layout/Topbar';
@@ -16,18 +17,35 @@ function App() {
   const { sidebarCollapsed } = useStore();
   const location = useLocation();
   const isWorkspace = location.pathname.startsWith('/project/');
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+
+  // Fecha a gaveta mobile sempre que a rota muda (troca de página == "fechar menu").
+  useEffect(() => {
+    setMobileSidebarOpen(false);
+  }, [location.pathname]);
 
   return (
     <div className="min-h-screen bg-paper">
-      {!isWorkspace && <Sidebar />}
+      {!isWorkspace && (
+        <Sidebar mobileOpen={mobileSidebarOpen} onCloseMobile={() => setMobileSidebarOpen(false)} />
+      )}
+      {/* Scrim: fecha a gaveta ao tocar fora dela (só existe enquanto aberta no mobile) */}
+      {!isWorkspace && mobileSidebarOpen && (
+        <button
+          type="button"
+          aria-label="Fechar menu"
+          className="fixed inset-0 z-40 bg-ink/25 lg:hidden"
+          onClick={() => setMobileSidebarOpen(false)}
+        />
+      )}
       <div
         className={cn(
           isWorkspace
             ? 'ml-0'
-            : cn('transition-all duration-300', sidebarCollapsed ? 'ml-16' : 'ml-64')
+            : cn('transition-all duration-300', sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-64')
         )}
       >
-        {!isWorkspace && <Topbar />}
+        {!isWorkspace && <Topbar onOpenMobileSidebar={() => setMobileSidebarOpen(true)} />}
         <main className={isWorkspace ? 'h-screen overflow-hidden' : 'min-h-[calc(100vh-4rem)]'}>
           <Routes>
             <Route path="/" element={<Home />} />

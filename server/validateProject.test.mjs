@@ -134,7 +134,7 @@ test('bug1: analyzeProject reporta parseError (não trava)', () => {
 
 test('bug1: portão troca seção com sintaxe quebrada por stub válido', () => {
   const { files, stubbed, broken } = enforceModuleIntegrity(
-    [GOOD_APP, SYNTAX_BROKEN, ...UI_KIT_FILES],
+    [GOOD_APP, GOOD_HEADER, SYNTAX_BROKEN, ...UI_KIT_FILES],
     ['components/FeaturedProducts.tsx'], // veio quebrado da validação de sintaxe
   );
   assert.ok(stubbed.some(s => s.name === 'components/FeaturedProducts.tsx'), 'deveria estar em stubbed');
@@ -206,7 +206,7 @@ export default function Slider() {
 }
 `,
   };
-  const { stubbed, broken } = enforceModuleIntegrity([GOOD_APP, f, ...UI_KIT_FILES]);
+  const { stubbed, broken } = enforceModuleIntegrity([GOOD_APP, GOOD_HEADER, f, ...UI_KIT_FILES]);
   assert.ok(stubbed.some(s => s.name === 'components/Slider.tsx' && /goToPrevious/.test(s.error)));
   assert.equal(broken.length, 0);
 });
@@ -240,7 +240,7 @@ test('dep npm fora da lista (date-fns) => warning, NÃO estuba', () => {
 export default function Agenda() { return <div>{format(new Date(), 'yyyy')}</div>; }
 `,
   };
-  const { broken, stubbed, warnings } = enforceModuleIntegrity([GOOD_APP, f, ...UI_KIT_FILES]);
+  const { broken, stubbed, warnings } = enforceModuleIntegrity([GOOD_APP, GOOD_HEADER, f, ...UI_KIT_FILES]);
   assert.equal(stubbed.length, 0);
   assert.equal(broken.length, 0);
   assert.ok(warnings.some(w => /date-fns/.test(w)));
@@ -248,9 +248,202 @@ export default function Agenda() { return <div>{format(new Date(), 'yyyy')}</div
 
 test('theme.ts (as const) não gera achado', () => {
   const theme = { name: 'theme.ts', content: `export const theme = { name: 'X', tagline: '', accent: '#6d28d9' } as const;\n` };
-  const r = analyzeProject([GOOD_APP, theme, ...UI_KIT_FILES]);
+  const r = analyzeProject([GOOD_APP, GOOD_HEADER, theme, ...UI_KIT_FILES]);
   assert.deepEqual(r.undefinedRefs, []);
   assert.deepEqual(r.parseErrors, []);
+});
+
+// ---------------------------------------------------------------------------
+// V1.1 — checagem de exports entre arquivos + missing-file agora é "hard"
+// ---------------------------------------------------------------------------
+test('v1.1: named import inexistente (typo) => no-export => stub', () => {
+  const f = {
+    name: 'components/Nav.tsx',
+    content: `import { Buton } from './ui/button';
+export default function Nav() { return <Buton>x</Buton>; }
+`,
+  };
+  const r = analyzeProject([GOOD_APP, GOOD_HEADER, f, ...UI_KIT_FILES]);
+  assert.ok(r.unresolvedImports.some(u => u.file === 'components/Nav.tsx' && u.reason === 'no-export' && u.name === 'Buton'));
+  const { stubbed } = enforceModuleIntegrity([GOOD_APP, GOOD_HEADER, f, ...UI_KIT_FILES]);
+  assert.ok(stubbed.some(s => s.name === 'components/Nav.tsx' && /export inexistente/.test(s.error)));
+});
+
+test('v1.1: default import de arquivo sem export default => stub', () => {
+  const heroNamed = {
+    name: 'components/Hero.tsx',
+    content: `export function HeroBlock() { return <section>hero</section>; }\n`,
+  };
+  const consumer = {
+    name: 'components/Landing.tsx',
+    content: `import Hero from './Hero';
+export default function Landing() { return <Hero />; }
+`,
+  };
+  const r = analyzeProject([GOOD_APP, GOOD_HEADER, heroNamed, consumer, ...UI_KIT_FILES]);
+  assert.ok(r.unresolvedImports.some(u => u.file === 'components/Landing.tsx' && u.reason === 'no-default-export'));
+  const { stubbed } = enforceModuleIntegrity([GOOD_APP, GOOD_HEADER, heroNamed, consumer, ...UI_KIT_FILES]);
+  assert.ok(stubbed.some(s => s.name === 'components/Landing.tsx'));
+  // Hero.tsx (named export) não é acusado de nada
+  assert.ok(!stubbed.some(s => s.name === 'components/Hero.tsx'));
+});
+
+test('v1.1: import de arquivo .tsx inexistente => missing-file => stub (era warning)', () => {
+  const f = {
+    name: 'components/Home.tsx',
+    content: `import Sidebar from './Sidebar';
+export default function Home() { return <div><Sidebar /></div>; }
+`,
+  };
+  const r = analyzeProject([GOOD_APP, GOOD_HEADER, f, ...UI_KIT_FILES]);
+  assert.ok(r.unresolvedImports.some(u => u.reason === 'missing-file' && u.spec === './Sidebar'));
+  const { stubbed, broken } = enforceModuleIntegrity([GOOD_APP, GOOD_HEADER, f, ...UI_KIT_FILES]);
+  assert.ok(stubbed.some(s => s.name === 'components/Home.tsx' && /não existe/.test(s.error)));
+  assert.equal(broken.length, 0);
+});
+
+test('v1.1: import de .css inexistente => missing-asset => warning, NÃO estuba', () => {
+  const f = {
+    name: 'components/Gallery.tsx',
+    content: `import './gallery.css';
+export default function Gallery() { return <div>fotos</div>; }
+`,
+  };
+  const { stubbed, broken, warnings } = enforceModuleIntegrity([GOOD_APP, GOOD_HEADER, f, ...UI_KIT_FILES]);
+  assert.equal(stubbed.length, 0);
+  assert.equal(broken.length, 0);
+  assert.ok(warnings.some(w => /gallery\.css/.test(w)));
+});
+
+test('v1.1: import válido entre seções não gera achado', () => {
+  const priceCard = {
+    name: 'components/PriceCard.tsx',
+    content: `export default function PriceCard() { return <div>R$</div>; }
+export const CURRENCY = 'BRL';
+`,
+  };
+  const pricing = {
+    name: 'components/Pricing.tsx',
+    content: `import PriceCard, { CURRENCY } from './PriceCard';
+export default function Pricing() { return <section>{CURRENCY}<PriceCard /></section>; }
+`,
+  };
+  const r = analyzeProject([GOOD_APP, GOOD_HEADER, priceCard, pricing, ...UI_KIT_FILES]);
+  assert.deepEqual(r.unresolvedImports, []);
+  assert.deepEqual(r.undefinedRefs, []);
+});
+
+test('v1.1: import de um export type não gera falso no-export', () => {
+  const categories = {
+    name: 'data/categories.ts',
+    content: `export type Category = { name: string; slug: string };
+export const categories: Category[] = [{ name: 'A', slug: 'a' }];
+`,
+  };
+  const posts = {
+    name: 'data/posts.ts',
+    content: `import { Category, categories } from './categories';
+export type Post = { id: string; category: Category };
+export const posts: Post[] = [{ id: '1', category: categories[0] }];
+`,
+  };
+  const list = {
+    name: 'components/PostList.tsx',
+    content: `import { posts, Post } from '../data/posts';
+export default function PostList() { return <ul>{posts.map((p: Post) => <li key={p.id}>{p.id}</li>)}</ul>; }
+`,
+  };
+  const app = {
+    name: 'App.tsx',
+    content: `import PostList from './components/PostList';
+export default function App() { return <div><PostList /></div>; }
+`,
+  };
+  const r = analyzeProject([app, list, posts, categories, ...UI_KIT_FILES]);
+  assert.deepEqual(r.unresolvedImports, [], JSON.stringify(r.unresolvedImports));
+  const { broken, stubbed } = enforceModuleIntegrity([app, list, posts, categories, ...UI_KIT_FILES]);
+  assert.equal(broken.length, 0, 'nada deveria quebrar: ' + JSON.stringify(broken));
+  assert.equal(stubbed.length, 0, 'nada deveria virar stub: ' + JSON.stringify(stubbed));
+});
+
+test('v1.1: re-export (export * from) não gera falso no-export', () => {
+  const barrel = { name: 'components/index.ts', content: `export * from './PriceCard';\n` };
+  const priceCard = { name: 'components/PriceCard.tsx', content: `export const PriceCard = () => <div/>;\n` };
+  const consumer = {
+    name: 'components/Grid.tsx',
+    content: `import { PriceCard, Whatever } from './index';
+export default function Grid() { return <PriceCard />; }
+`,
+  };
+  const r = analyzeProject([GOOD_APP, GOOD_HEADER, barrel, priceCard, consumer, ...UI_KIT_FILES]);
+  assert.ok(!r.unresolvedImports.some(u => u.file === 'components/Grid.tsx' && u.reason === 'no-export'));
+});
+
+// ---------------------------------------------------------------------------
+// Portão: fallback determinístico do App.tsx (Preview nunca dá tela branca)
+// ---------------------------------------------------------------------------
+const BAD_APP = {
+  name: 'App.tsx',
+  content: `import Header from './components/Header';
+import { Broken } from './components/DoesNotExist';
+export default function App() { return <div><Header /><Broken /></div>; }
+`,
+};
+const SCAFFOLD_APP = {
+  name: 'App.tsx',
+  content: `import Header from './components/Header';
+export default function App() {
+  return <div className="min-h-screen bg-background text-foreground"><Header /></div>;
+}
+`,
+};
+
+test('portão: App.tsx quebrado + fallback válido => recovered, não broken', () => {
+  const { files, broken, recovered } = enforceModuleIntegrity(
+    [BAD_APP, GOOD_HEADER, ...UI_KIT_FILES],
+    [],
+    { appFallback: SCAFFOLD_APP },
+  );
+  assert.ok(recovered.some(r => r.name === 'App.tsx'));
+  assert.ok(!broken.some(b => b.name === 'App.tsx'));
+  const app = files.find(f => f.name === 'App.tsx');
+  assert.equal(app.content, SCAFFOLD_APP.content);
+  compiles('App.tsx', app.content);
+});
+
+test('portão: fallback rejeitado se um import dele não resolve', () => {
+  const badFallback = {
+    name: 'App.tsx',
+    content: `import Header from './components/Header';
+import Missing from './components/Missing';
+export default function App() { return <div><Header /><Missing /></div>; }
+`,
+  };
+  const { broken, recovered } = enforceModuleIntegrity(
+    [BAD_APP, GOOD_HEADER, ...UI_KIT_FILES],
+    [],
+    { appFallback: badFallback },
+  );
+  assert.equal(recovered.length, 0);
+  assert.ok(broken.some(b => b.name === 'App.tsx'));
+});
+
+test('portão: sem appFallback, App.tsx quebrado continua broken', () => {
+  const { broken, recovered } = enforceModuleIntegrity([BAD_APP, GOOD_HEADER, ...UI_KIT_FILES]);
+  assert.equal(recovered.length, 0);
+  assert.ok(broken.some(b => b.name === 'App.tsx'));
+});
+
+test('v1.1: namespace import (import * as X) não gera no-export', () => {
+  const utils = { name: 'lib/format.ts', content: `export const brl = (n) => 'R$' + n;\n` };
+  const f = {
+    name: 'components/Cart.tsx',
+    content: `import * as fmt from '../lib/format';
+export default function Cart() { return <div>{fmt.brl(9)}</div>; }
+`,
+  };
+  const r = analyzeProject([GOOD_APP, GOOD_HEADER, utils, f, ...UI_KIT_FILES]);
+  assert.deepEqual(r.unresolvedImports.filter(u => u.file === 'components/Cart.tsx'), []);
 });
 
 console.log(`\n${passed} testes OK${process.exitCode ? ' — COM FALHAS' : ''}`);

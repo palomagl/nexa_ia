@@ -1,0 +1,27 @@
+# Blueprint do Render pro backend Express (server/).
+# No dashboard do Render: New > Blueprint > selecione este repositório.
+# Depois preencha as chaves de API (Environment > Secret Files ou Env Vars)
+# — elas NÃO ficam neste arquivo, que é versionado no Git.
+services:
+  - type: web
+    name: nexa-ia-server
+    runtime: node
+    plan: free
+    rootDir: server
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: AI_PROVIDER_CHAIN
+        value: gemini,mistral,groq
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_MODEL
+        value: gemini-2.5-flash
+      - key: MISTRAL_API_KEY
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: PEXELS_API_KEY
+        sync: false
+      - key: CORS_ORIGIN
+        sync: false

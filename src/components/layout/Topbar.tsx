@@ -1,18 +1,29 @@
-import { HelpCircle, Plus, Search } from 'lucide-react';
+import { HelpCircle, Menu, Plus, Search } from 'lucide-react';
 import { useStore } from '../../store/useStore';
 import { useNavigate } from 'react-router-dom';
 
-export function Topbar() {
+interface TopbarProps {
+  onOpenMobileSidebar?: () => void;
+}
+
+export function Topbar({ onOpenMobileSidebar }: TopbarProps) {
   const { setCommandOpen, workspace, user } = useStore();
   const navigate = useNavigate();
   const initials = user.name.split(' ').map(n => n[0]).join('').slice(0, 2);
 
   return (
     <header className="sticky top-0 z-30 h-16 bg-paper-card/80 backdrop-blur-sm border-b border-paper-line2 flex items-center justify-between px-4 lg:px-6">
-      <div className="flex items-center gap-2 text-sm">
-        <span className="text-ink/50">Workspace</span>
-        <span className="text-ink/30">/</span>
-        <span className="font-display font-medium text-ink">{workspace.name}</span>
+      <div className="flex items-center gap-3 text-sm min-w-0">
+        <button
+          onClick={onOpenMobileSidebar}
+          className="lg:hidden btn-ghost p-2 -ml-2 flex-shrink-0"
+          title="Abrir menu"
+        >
+          <Menu className="w-5 h-5" />
+        </button>
+        <span className="hidden sm:inline text-ink/50">Workspace</span>
+        <span className="hidden sm:inline text-ink/30">/</span>
+        <span className="font-display font-medium text-ink truncate">{workspace.name}</span>
       </div>
 
       <div className="flex items-center gap-2">

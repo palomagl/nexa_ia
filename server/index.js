@@ -36,7 +36,13 @@ dotenv.config();
 const app = express();
 const port = process.env.PORT || 3000;
 
-app.use(cors());
+// Em produção, defina CORS_ORIGIN com a URL do frontend (ex.: o domínio do
+// Vercel) pra restringir quem pode chamar a API. Sem a env var, mantém o
+// comportamento atual (aberto) — útil em dev local.
+const corsOrigin = process.env.CORS_ORIGIN
+  ? process.env.CORS_ORIGIN.split(',').map(origin => origin.trim())
+  : true;
+app.use(cors({ origin: corsOrigin }));
 app.use(express.json({ limit: '10mb' }));
 
 /*
@@ -241,8 +247,17 @@ function resolveUploadedImageMarker(files, attachment) {
 // Erros que justificam tentar o próximo provedor da cadeia (limite de uso
 // gratuito estourado, sobrecarga do lado do provedor, chave inválida etc.)
 // — qualquer coisa que não seja um problema do nosso prompt em si.
+//
+// Cada SDK expõe o código HTTP com um nome diferente: `status` (Gemini,
+// Groq/OpenAI, Anthropic) e `statusCode` (Mistral). Sem ler os dois, um
+// 429 do Mistral passava como "erro do nosso prompt" e a cadeia inteira
+// abortava ali, sem nunca tentar o próximo provedor.
+function providerErrorStatus(error) {
+  return error?.status ?? error?.statusCode ?? error?.code;
+}
+
 function isRetryableProviderError(error) {
-  const status = error?.status ?? error?.code;
+  const status = providerErrorStatus(error);
   if ([401, 403, 404, 413, 429, 500, 502, 503, 529].includes(status)) return true;
   if (error?.name === 'APIConnectionError' || error?.name === 'AbortError' || error?.name === 'TimeoutError') {
     return true;
@@ -343,7 +358,7 @@ async function* streamFromProvider(provider, prompt, { temperature, model } = {}
 const providerCooldownUntil = new Map();
 
 function providerCooldownMs(error) {
-  const status = error?.status ?? error?.code;
+  const status = providerErrorStatus(error);
   if ([401, 403, 404].includes(status)) return 15 * 60_000; // auth / tier / modelo inválido
   if (status === 413) return 15 * 60_000;                    // payload/limite do modelo
   if (status === 429) return 90_000;                         // cota / rate limit
@@ -379,7 +394,7 @@ async function* streamModelText(prompt, opts = {}) {
 
   for (let i = 0; i < chain.length; i++) {
     const provider = chain[i];
-    let retried429 = false;
+    let retriedTransient = false;
 
     for (;;) {
       let yielded = false;
@@ -392,17 +407,22 @@ async function* streamModelText(prompt, opts = {}) {
         return;
       } catch (error) {
         lastError = error;
-        const status = error?.status ?? error?.code;
+        const status = providerErrorStatus(error);
         const isLast = i === chain.length - 1;
         const retryable = isRetryableProviderError(error);
 
-        // 429 antes de qualquer token: o rate limit costuma liberar em
-        // segundos. Espera e tenta o MESMO provedor 1x antes de cair pro
-        // fallback (que é mais fraco). Só se nada foi transmitido ainda.
-        if (status === 429 && !retried429 && !yielded) {
-          retried429 = true;
-          console.warn(`⏳ [${provider}] 429 — esperando 20s e tentando de novo...`);
-          await sleep(20_000);
+        // 429 (rate limit) ou 5xx de sobrecarga (502/503/529) antes de
+        // qualquer token: costuma liberar em segundos. Espera e tenta o
+        // MESMO provedor 1x antes de cair pro fallback (que é mais fraco).
+        // Só se nada foi transmitido ainda. O 503 do Gemini é o caso mais
+        // comum — sem esse retry, toda oscilação do Google derrubava a
+        // geração pro provedor secundário.
+        const transient = status === 429 || [500, 502, 503, 529].includes(status);
+        if (transient && !retriedTransient && !yielded) {
+          retriedTransient = true;
+          const waitMs = status === 429 ? 20_000 : 8_000;
+          console.warn(`⏳ [${provider}] ${status} — esperando ${waitMs / 1000}s e tentando de novo...`);
+          await sleep(waitMs);
           continue;
         }
 
@@ -412,7 +432,7 @@ async function* streamModelText(prompt, opts = {}) {
         }
 
         console.warn(
-          `⚠️ [${provider}] falhou (${error?.status || error?.code || error?.message || 'erro'}).`,
+          `⚠️ [${provider}] falhou (${status || error?.message || 'erro'}).`,
           coolMs > 0 ? `Em cooldown por ${Math.round(coolMs / 1000)}s.` : '',
           !isLast && retryable ? `Tentando "${chain[i + 1]}"...` : 'Sem próximo provedor.'
         );
@@ -541,6 +561,29 @@ CONTRASTE E CORES:
 QUALIDADE NÃO PODE CAIR POR CAUSA DESSAS REGRAS. Ainda assim você DEVE
 criar uma aplicação visualmente rica, completa e profissional, com
 múltiplas seções e interatividade real.
+
+======================================================================
+ARQUIVO COMPLETO + IMPORTS
+======================================================================
+
+- IMPORT POR ARQUIVO: todo componente, hook, ícone ou módulo externo
+  usado num arquivo PRECISA estar importado no TOPO DESSE arquivo — não
+  vale "herdar" imports de outro arquivo. Usou <Button>? precisa de
+  "import { Button } from './ui/button'" nesse arquivo. Usou
+  <ChevronRight/>? "import { ChevronRight } from 'lucide-react'".
+  Usou useState? "import { useState } from 'react'". APIs nativas do
+  browser como window, document, fetch e JSON NÃO precisam de import.
+  Antes de fechar cada arquivo, revise se todos os componentes, hooks,
+  ícones e módulos externos usados nele possuem seus próprios imports.
+
+- CADA ARQUIVO 100% FECHADO: toda tag, chave, parêntese e aspa devem
+  estar fechados. Nenhuma função, objeto, array ou JSX pode ficar pela
+  metade. Arquivo incompleto quebra o Preview.
+
+- SE O ESPAÇO ESTIVER ACABANDO: entregue UMA seção a menos, completa,
+  do que tentar incluir mais uma seção pela metade. É melhor ter menos
+  seções completas do que arquivos truncados. Sempre termine o último
+  arquivo corretamente e chegue ao ===END===.
 `;
 
 /*
@@ -1661,9 +1704,11 @@ app.post('/api/generate', async (req, res) => {
     // imports. Auto-importa nomes conhecidos (kit / react / lucide), e o portão
     // troca seções irrecuperáveis por um stub determinístico pra o Preview
     // MONTAR em vez de dar tela branca. Não toca no ProjectPlan/scaffold.
+    const appFallback = projectPlan ? scaffoldSpine(projectPlan, chosenTheme)[0] : null;
     const integrity = enforceModuleIntegrity(
       syntaxCheckedFiles,
       syntaxBrokenFiles.map(b => b.name),
+      { appFallback },
     );
     const files = integrity.files;
     const brokenFiles = [
@@ -1679,6 +1724,15 @@ app.post('/api/generate', async (req, res) => {
         '🧩 [integridade] seções irrecuperáveis viraram stub:',
         integrity.stubbed.map(s => `${s.name} (${s.error})`),
       );
+    }
+    if (integrity.recovered.length > 0) {
+      console.log(
+        '♻️ [integridade] App.tsx irrecuperável — usando o App do scaffold:',
+        integrity.recovered.map(r => r.error),
+      );
+    }
+    for (const r of integrity.recovered) {
+      integrity.warnings.push(`${r.name}: reconstruído a partir do plano (o App da IA quebrou — ${r.error})`);
     }
 
     const appFile =
