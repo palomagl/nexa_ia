@@ -1,8 +1,32 @@
+import { useEffect, useState } from 'react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
+}
+
+// URL base da API. Em dev cai em localhost:3000 (servidor Express local);
+// em produção (Vercel), defina VITE_API_URL no dashboard apontando pro
+// backend hospedado (ex.: Render). Ver .env.example na raiz do projeto.
+export const API_URL = (import.meta.env.VITE_API_URL || 'http://localhost:3000').replace(/\/$/, '');
+
+// Hook simples de breakpoint — usado pra alternar entre navegação fixa
+// (desktop) e gaveta sobreposta (mobile/tablet).
+export function useIsMobile(breakpointPx = 1024): boolean {
+  const [isMobile, setIsMobile] = useState(
+    () => typeof window !== 'undefined' && window.innerWidth < breakpointPx
+  );
+
+  useEffect(() => {
+    const mq = window.matchMedia(`(max-width: ${breakpointPx - 1}px)`);
+    const sync = () => setIsMobile(mq.matches);
+    sync();
+    mq.addEventListener('change', sync);
+    return () => mq.removeEventListener('change', sync);
+  }, [breakpointPx]);
+
+  return isMobile;
 }
 
 export function formatDate(input: string | number | Date): string {

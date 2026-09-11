@@ -36,7 +36,13 @@ dotenv.config();
 const app = express();
 const port = process.env.PORT || 3000;
 
-app.use(cors());
+// Em produção, defina CORS_ORIGIN com a URL do frontend (ex.: o domínio do
+// Vercel) pra restringir quem pode chamar a API. Sem a env var, mantém o
+// comportamento atual (aberto) — útil em dev local.
+const corsOrigin = process.env.CORS_ORIGIN
+  ? process.env.CORS_ORIGIN.split(',').map(origin => origin.trim())
+  : true;
+app.use(cors({ origin: corsOrigin }));
 app.use(express.json({ limit: '10mb' }));
 
 /*
